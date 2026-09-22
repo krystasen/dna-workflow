@@ -91,10 +91,13 @@ def _tool_argv(executable: str, args: list[str]) -> list[str]:
             if os.name == "nt" and executable.startswith("/") else [executable, *args])
 
 
-def _run(argv: list[str], cwd: Path, log: Path) -> None:
+def _run(argv: list[str], cwd: Path, log: Path, extra_env: dict[str, str] | None = None) -> None:
     log.parent.mkdir(exist_ok=True)
     try:
-        result = subprocess.run(argv, cwd=cwd, text=True, encoding="utf-8", errors="replace",
+        env = os.environ.copy()
+        if extra_env:
+            env.update(extra_env)
+        result = subprocess.run(argv, cwd=cwd, env=env, text=True, encoding="utf-8", errors="replace",
                                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False)
     except FileNotFoundError as exc:
         raise AmberBackendError(f"Required executable was not found: {argv[0]}") from exc
@@ -111,7 +114,14 @@ def _run_tleap(job: Path, tleap: str, label: str, text: str) -> None:
     script = job / "logs" / f"{label}.in"
     script.parent.mkdir(exist_ok=True)
     script.write_text(text, encoding="ascii")
-    _run(_tool_argv(tleap, ["-f", _tool_path(script)]), job, job / "logs" / f"{label}.log")
+    # Amber's shell wrapper uses unquoted ``$*`` and breaks WSL paths containing
+    # spaces. Call the teLeap binary directly and provide its include paths.
+    amberhome = str(Path(tleap).parent.parent).replace("\\", "/")
+    executable = str(Path(tleap).with_name("teLeap")) if Path(tleap).name == "tleap" else tleap
+    args = ["-I" + amberhome + "/dat/leap/prep", "-I" + amberhome + "/dat/leap/lib",
+            "-I" + amberhome + "/dat/leap/parm", "-I" + amberhome + "/dat/leap/cmd",
+            "-f", _tool_path(script)]
+    _run(_tool_argv(executable, args), job, job / "logs" / f"{label}.log", {"AMBERHOME": amberhome})
 
 
 def _prepare_input_pdb(source: Path, destination: Path, strands: list[str]) -> dict[str, Any]:
