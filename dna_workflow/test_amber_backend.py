@@ -72,6 +72,23 @@ class AmberBackendTest(unittest.TestCase):
             posre = (path.parent / "posre_DNA_DNA_GGCC.itp").read_text(encoding="ascii")
             self.assertEqual(sum(line.lstrip()[:1].isdigit() for line in posre.splitlines()), 2)
 
+    def test_neutral_charge_tolerance_accepts_decimal_roundoff(self):
+        from types import SimpleNamespace as Obj
+        dna_res = Obj(name="DA")
+        dna = Obj(name="C", residue=dna_res, idx=0, charge=0., atomic_number=6)
+        water = Obj(name="WAT")
+        water.atoms = [Obj(residue=water, charge=q, atomic_number=z)
+                       for z,q in [(8,0.), (1,.679142), (1,.679142), (0,-1.358284)]]
+        ion = Obj(name="K+")
+        ion.atoms = [Obj(residue=ion, charge=.000175712, atomic_number=19)]
+        structure = Obj(atoms=[dna,*water.atoms,*ion.atoms], residues=[dna_res,water,ion], bonds=[])
+        manifest = {"atoms":[{"name":"C", "residue":"DA", "chain":"A", "resid":1}], "bonds":[]}
+        result = amber._validate_opc_and_prefix(structure, manifest)
+        self.assertAlmostEqual(result["total_charge_e"], .000175712)
+        ion.atoms[0].charge = 1.0
+        with self.assertRaisesRegex(RuntimeError, "not neutral"):
+            amber._validate_opc_and_prefix(structure, manifest)
+
     def test_opc_topology_requires_settles_and_virtual_sites3(self):
         top = """[ moleculetype ]\nWAT 3\n[ atoms ]\n1 OW 1 WAT OW 1 0 1\n2 HW 1 WAT HW1 1 0 1\n3 EP 1 WAT EP 1 0 1\n[ settles ]\n1 1 0.1 0.16\n[ virtual_sites3 ]\n3 1 2 1 1 0.1 0.1\n[ system ]\ntest\n[ molecules ]\nWAT 1\n"""
         with tempfile.TemporaryDirectory() as directory:

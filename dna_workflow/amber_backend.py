@@ -577,8 +577,10 @@ def _validate_opc_and_prefix(structure: Any, manifest: dict[str, Any]) -> dict[s
         name = residue.name.strip()
         if name in {"Na+", "K+", "Cl-"}:
             ion_counts[name] = ion_counts.get(name, 0) + 1
-    total_charge = sum(float(atom.charge) for atom in structure.atoms)
-    if not math.isclose(total_charge, 0.0, abs_tol=1e-4):
+    total_charge = math.fsum(float(atom.charge) for atom in structure.atoms)
+    # Serialized OPC charges retain ~5.49e-9 e per water in our Amber prmtop;
+    # 31964 waters accumulate ~1.75e-4 e even with accurate summation.
+    if not math.isclose(total_charge, 0.0, abs_tol=1e-3):
         raise RuntimeError(f"Final solvated system charge is {total_charge:g} e, not neutral.")
     return {"water_molecules": len(water), "sites_per_water": 4, "final_atom_count": len(structure.atoms),
             "ion_counts": ion_counts, "total_charge_e": total_charge}

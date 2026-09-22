@@ -313,7 +313,7 @@ def run(args):
         if stage in {"topology", "solvate"} and cfg.get("md_model", MD_MODELS[0]) != MD_MODELS[0]:
             script = Path(__file__).resolve().with_name("amber_backend.py")
             argv = [cfg["amber_python"], str(script), stage, "--job", str(job)]
-            stream_process(argv, job, job / "logs" / f"amber-{stage}.log")
+            stream_process(argv, job, job / "logs" / f"amber-{stage}-pipeline.log")
             if stage == "topology":
                 atoms = restore_identity(read_pdb(job / "topology.pdb"), cfg["strands_5to3"])
                 check = validate_job_dna(atoms, job, cfg)

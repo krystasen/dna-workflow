@@ -9,9 +9,26 @@ from unittest.mock import patch
 
 import dna_workflow as wf
 import gui_server as gui
+import md_pipeline as md
 
 
 class AmberIntegrationTest(unittest.TestCase):
+    def test_pipeline_log_does_not_overwrite_tleap_log(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "logs").mkdir()
+            log = root / "logs" / "amber-solvate.log"
+            log.write_text("original tleap diagnostic", encoding="utf-8")
+            wf.save_json(root / "workflow.json", {"md_model":"ol21_opc", "amber_python":"amber-python"})
+            for name in ("solv_ions.gro", "topol.top", "solvate.complete.json"):
+                (root / name).touch()
+            def fake_run(argv, cwd, target, *args):
+                target.write_text("pipeline output", encoding="utf-8")
+            with patch.object(md, "stream_process", side_effect=fake_run):
+                md.run(SimpleNamespace(job=root, gmx="gmx", stage="solvate"))
+            self.assertEqual(log.read_text(encoding="utf-8"), "original tleap diagnostic")
+            self.assertTrue((root / "logs" / "amber-solvate-pipeline.log").is_file())
+
     def test_environment_reports_missing_amber_dependency(self):
         app = gui.App()
         responses = [SimpleNamespace(returncode=0, stdout="Ubuntu-24.04\n".encode("utf-16-le"), stderr=b""),
