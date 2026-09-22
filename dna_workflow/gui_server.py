@@ -354,6 +354,9 @@ class App:
             raise APIError("Unsupported DNA/water model.")
         amber = model != MD_MODELS[0]
         forcefield = None if amber else Path(required(payload, "forcefield")).expanduser().resolve()
+        if not amber:
+            if not forcefield.is_dir() or not (forcefield / "na.rtp").is_file():
+                raise APIError(f"CHARMM 力场目录无效或缺少 na.rtp：{forcefield}")
         if amber:
             for key in ("amber_python", "amber_tleap"):
                 value = payload.get(key, self.defaults[key])

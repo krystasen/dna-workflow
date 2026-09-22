@@ -70,6 +70,16 @@ class AmberIntegrationTest(unittest.TestCase):
             self.assertNotIn("--forcefield", calls[0])
             self.assertNotIn("mdrun", calls[0])
 
+    def test_gui_rejects_missing_charmm_forcefield_before_background_build(self):
+        app = gui.App()
+        with tempfile.TemporaryDirectory() as tmp:
+            payload = dict(sequence="ACGT", mode="duplex", output=str(Path(tmp)/"job"),
+                           md_model="charmm36_tip3p", forcefield=str(Path(tmp)/"missing.ff"),
+                           temperature=310, salt=.15, nvt_ps=100, npt_ps=1000, md_ns=100, xtc_ps=10,
+                           padding=1.5, seed=42, box_type="dodecahedron")
+            with self.assertRaisesRegex(gui.APIError, "缺少 na.rtp"):
+                app.create_job(payload)
+
 
 if __name__ == "__main__":
     unittest.main()
