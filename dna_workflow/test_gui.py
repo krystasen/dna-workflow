@@ -155,7 +155,7 @@ class GuiApiTest(unittest.TestCase):
                 def fake(argv,*a,**kw):
                     calls.append(argv)
                     return ''
-                with patch.object(md,'stream_process',fake), patch.object(md,'read_pdb',return_value=atoms), patch.object(md,'validate_dna'):
+                with patch.object(md,'stream_process',fake), patch.object(md,'read_pdb',return_value=atoms), patch.object(md,'validate_job_dna'):
                     md.run(SimpleNamespace(job=job,gmx='gmx',stage='handoff'))
                 trj=[c for c in calls if 'trjconv' in c]
                 pbc=[c[c.index('-pbc')+1] for c in trj if '-pbc' in c]

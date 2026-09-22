@@ -18,7 +18,9 @@ import shutil
 
 HERE = Path(__file__).resolve().parent
 BASES = {"DA", "DC", "DG", "DT"}
-ENVIRONMENT = {"SOL", "HOH", "WAT", "TIP3", "SOD", "CLA", "POT", "NA", "CL", "K"}
+ENVIRONMENT = {"SOL", "HOH", "WAT", "OPC", "TIP3", "SOD", "CLA", "POT", "NA", "CL", "K", "Na+", "K+", "Cl-"}
+MD_MODELS = ("charmm36_tip3p", "ol21_opc", "ol24_opc")
+AMBER_ENV = "/home/chenz/.local/share/dna-amber/env"
 Z = {"H": 1, "C": 6, "N": 7, "O": 8, "P": 15}
 
 
@@ -188,6 +190,41 @@ def validate_dna(atoms: list[Atom], strands: list[str], ff: Path, hydrogens=Fals
             "validation": "CHARMM residue atom sets and bond geometry checked; not a pdb2gmx execution"}
 
 
+def validate_job_dna(atoms: list[Atom], job: Path, cfg: dict) -> dict:
+    """Validate CHARMM via RTP, AMBER via the actual exported covalent topology."""
+    if cfg.get("md_model", MD_MODELS[0]) == MD_MODELS[0]:
+        return validate_dna(atoms, cfg["strands_5to3"], job / cfg["forcefield"], hydrogens=True)
+    manifest = json.loads((job / "dna_manifest.json").read_text(encoding="utf-8"))
+    if manifest["md_model"] != cfg["md_model"]:
+        raise ValueError("DNA topology model differs from job configuration")
+    fields = ("name", "residue", "chain", "resid", "element")
+    if [tuple(getattr(a, k) for k in fields) for a in atoms] != [tuple(a[k] for k in fields) for a in manifest["atoms"]]:
+        raise ValueError("DNA atom identity/order differs from Amber topology manifest")
+    expected = [(chr(65+c), i+1, "D"+b) for c,s in enumerate(cfg["strands_5to3"]) for i,b in enumerate(s)]
+    groups = residues(atoms)
+    if [(g[0].chain, g[0].resid, g[0].residue) for g in groups] != expected:
+        raise ValueError("Amber residue sequence does not match the input strands")
+    charge = -sum(len(s)-1 for s in cfg["strands_5to3"])
+    if not math.isclose(manifest["charge"], charge, abs_tol=1e-5):
+        raise ValueError("Amber DNA charge differs from 5OH/3OH canonical DNA")
+    cross_bonds = []
+    for i, j in manifest["bonds"]:
+        a, b = atoms[i], atoms[j]
+        if a.chain != b.chain:
+            raise ValueError("Unexpected covalent bond between DNA strands")
+        distance = math.dist(a.xyz, b.xyz)
+        low, high = (0.65, 1.40) if "H" in (a.element, b.element) else (1.05, 1.95)
+        if not low <= distance <= high:
+            raise ValueError(f"Bad Amber DNA bond {i+1}-{j+1}: {distance:.3f} A; check PBC")
+        if a.resid != b.resid:
+            cross_bonds.append(distance)
+    if len(cross_bonds) != -charge:
+        raise ValueError("Amber backbone connectivity differs from input strands")
+    return {"atom_count": len(atoms), "nucleotides": len(groups), "strands": cfg["strands_5to3"],
+            "charge": charge, "cross_residue_bonds": len(cross_bonds),
+            "validation": "Amber atom identities, sequence, charge and exported covalent bond geometry checked"}
+
+
 def build_atoms(seq: str, duplex: bool) -> list[Atom]:
     from openbabel import openbabel as ob
     conversion = ob.OBConversion()
@@ -214,6 +251,10 @@ def mdp_text(stage: str, cfg: dict) -> str:
     common = {"cutoff-scheme": "Verlet", "nstlist": 20, "coulombtype": "PME", "rcoulomb": 1.2,
               "vdwtype": "Cut-off", "vdw-modifier": "Force-switch", "rvdw-switch": 1.0,
               "rvdw": 1.2, "DispCorr": "no", "pbc": "xyz", "pme_order": 4, "fourierspacing": 0.12}
+    if cfg.get("md_model", MD_MODELS[0]) != MD_MODELS[0]:
+        # Separate AMBER cutoff convention; do not inherit CHARMM force switching.
+        common.update({"vdw-modifier": "Potential-shift", "DispCorr": "EnerPres"})
+        common.pop("rvdw-switch")
     if stage == "em":
         settings = {"integrator": "steep", "nsteps": 50000, "emtol": 1000, "emstep": 0.01}
     else:
@@ -247,11 +288,19 @@ def build(args) -> None:
         if partner != complement(seq):
             raise ValueError("Initial version supports matched antiparallel duplexes only; both inputs are 5' -> 3'.")
         strands.append(partner)
-    ff = args.forcefield.resolve()
-    if not ff.name.endswith(".ff"):
+    model = getattr(args, "md_model", MD_MODELS[0])
+    if model not in MD_MODELS:
+        raise ValueError("Unsupported DNA/water model")
+    amber = model != MD_MODELS[0]
+    ff = args.forcefield.resolve() if args.forcefield else None
+    if not amber and (ff is None or not ff.name.endswith(".ff")):
         raise ValueError("Pass the CHARMM GROMACS force-field directory ending in .ff.")
+    if amber and args.box_type == "dodecahedron":
+        raise ValueError("AmberTools branch supports cubic/triclinic/octahedron, not dodecahedron. Select the box explicitly.")
     atoms = build_atoms(seq, len(strands) == 2)
-    report = validate_dna(atoms, strands, ff)
+    report = ({"charge": -sum(len(s) - 1 for s in strands), "atom_count": len(atoms),
+               "validation": "Ideal heavy-atom seed only; AmberTools topology validation pending"}
+              if amber else validate_dna(atoms, strands, ff))
     for value in [args.temperature, args.nvt_ps, args.npt_ps, args.md_ns, args.xtc_ps, args.padding]:
         if not math.isfinite(value) or value <= 0:
             raise ValueError("Temperature, durations, output interval and padding must be positive.")
@@ -260,25 +309,30 @@ def build(args) -> None:
     for duration in [args.nvt_ps, args.npt_ps, args.md_ns * 1000, args.xtc_ps]:
         if not math.isclose(duration / 0.002, round(duration / 0.002), abs_tol=1e-6):
             raise ValueError("Time parameters must be multiples of 0.002 ps.")
-    cfg = {"strands_5to3": strands, "termini": "5OH-3OH", "forcefield": ff.name,
+    cfg = {"strands_5to3": strands, "termini": "5OH-3OH", "forcefield": model if amber else ff.name,
+           "md_model": model, "water_model": "OPC" if amber else "CHARMM TIP3P",
            "temperature_K": args.temperature, "nvt_ps": args.nvt_ps, "npt_ps": args.npt_ps,
            "md_ns": args.md_ns, "xtc_ps": args.xtc_ps, "seed": args.seed, "salt_M": args.salt,
            "padding_nm": args.padding, "box_type": args.box_type, "formal_dna_charge": report["charge"],
            "openbabel_wheel_version": version("openbabel-wheel"),
            "topology_reference": "topology.pdb", "model": "Open Babel ideal helical start; not an equilibrated conformation"}
+    if amber:
+        cfg.update(amber_tleap=args.amber_tleap, amber_python=args.amber_python, salt_cation=args.salt_cation,
+                   parameter_validation="pending; topology conversion is not force-field validation")
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
     (output / "dna_input.pdb").write_text(pdb_text(atoms), encoding="ascii")
     (output / "sequence.fasta").write_text("".join(f">strand_{chr(65+i)} 5to3\n{s}\n" for i,s in enumerate(strands)), encoding="ascii")
     save_json(output / "workflow.json", cfg)
     save_json(output / "structure_check.json", report)
-    shutil.copytree(ff, output / ff.name)
-    for name in ["dna_workflow.py", "md_pipeline.py", "vmd_handoff.tcl"]:
+    if not amber:
+        shutil.copytree(ff, output / ff.name)
+    for name in ["dna_workflow.py", "md_pipeline.py", "amber_backend.py", "vmd_handoff.tcl"]:
         shutil.copyfile(HERE / name, output / name)
     for stage in ["em", "nvt", "npt", "md"]:
         (output / (stage + ".mdp")).write_text(mdp_text(stage, cfg), encoding="ascii")
     print(output)
-    print(f"{len(strands)} strand(s); {len(atoms)} heavy atoms; DNA charge {report['charge']}; CHARMM static validation PASS")
+    print(f"{len(strands)} strand(s); {len(atoms)} heavy atoms; DNA charge {report['charge']}; {report['validation']}")
 
 
 def restore_identity(atoms: list[Atom], strands: list[str]) -> list[Atom]:
@@ -325,11 +379,11 @@ def gaussian(args) -> None:
         if exported.get("export_files") != current:
             raise RuntimeError("EM results or relaxed PDB changed since export; rerun verify_relax before Gaussian.")
     reference = restore_identity(read_pdb(job / "topology.pdb"), cfg["strands_5to3"])
-    validate_dna(reference, cfg["strands_5to3"], job / cfg["forcefield"], hydrogens=True)
+    validate_job_dna(reference, job, cfg)
     raw = read_pdb(args.frame)
     selected = select_dna_atoms(raw, reference)
     cleaned = [replace(a, serial=i+1, xyz=b.xyz) for i,(a,b) in enumerate(zip(reference, selected))]
-    report = validate_dna(cleaned, cfg["strands_5to3"], job / cfg["forcefield"], hydrogens=True)
+    report = validate_job_dna(cleaned, job, cfg)
     charge = report["charge"]
     electrons = sum(Z[a.element] for a in cleaned) - charge
     if electrons % 2:
@@ -380,7 +434,11 @@ def parser():
     mode.add_argument("--single", action="store_true")
     mode.add_argument("--duplex", action="store_true")
     mode.add_argument("--partner", help="Second strand written 5' -> 3'; must be reverse complement")
-    p.add_argument("--forcefield", type=Path, required=True)
+    p.add_argument("--forcefield", type=Path)
+    p.add_argument("--md-model", choices=MD_MODELS, default=MD_MODELS[0])
+    p.add_argument("--amber-tleap", default=AMBER_ENV + "/bin/tleap")
+    p.add_argument("--amber-python", default=AMBER_ENV + "/bin/python")
+    p.add_argument("--salt-cation", choices=["Na+", "K+"], default="Na+")
     p.add_argument("--output", type=Path, required=True)
     p.add_argument("--temperature", type=float, default=310.0)
     p.add_argument("--salt", type=float, default=0.15)

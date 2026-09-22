@@ -411,7 +411,9 @@
                   <details class="setup-details">
                     <summary><span>计算设置</span><span>力场与 MD 参数</span></summary>
                     <div class="details-body">
-                      <div class="field"><label for="forcefield">CHARMM36 力场目录</label><div class="input-row"><input class="mono-input" id="forcefield" name="forcefield" value="D:\data\DNA DoS\accept file\charmm36-jul2022.ff" autocomplete="off" required><button class="button quiet" type="button" data-submit data-browse="directory" data-target="forcefield"><span class="button-label">选择目录</span></button></div><p class="field-help">仅支持包含 <span class="mono">na.rtp</span> 的 CHARMM36 <span class="mono">.ff</span> 目录。</p></div>
+                      <div class="field"><label for="md-model">DNA 力场 / 水模型</label><select id="md-model"><option value="charmm36_tip3p">CHARMM36 + CHARMM TIP3P（已有流程）</option><option value="ol21_opc">AMBER OL21 + OPC（实验性转换）</option><option value="ol24_opc">AMBER OL24 + OPC（实验性转换）</option></select><p class="field-help">仅对新任务生效；不会改变已有轨迹或检查点。Amber 分支已通过小体系 TPR 编译，跨引擎能量/力与长期稳定性尚待验证。</p></div>
+                      <div class="field" id="charmm-settings"><label for="forcefield">CHARMM36 力场目录</label><div class="input-row"><input class="mono-input" id="forcefield" name="forcefield" value="D:\data\DNA DoS\accept file\charmm36-jul2022.ff" autocomplete="off" required><button class="button quiet" type="button" data-submit data-browse="directory" data-target="forcefield"><span class="button-label">选择目录</span></button></div><p class="field-help">包含 <span class="mono">na.rtp</span> 的 CHARMM36 <span class="mono">.ff</span> 目录。</p></div>
+                      <div id="amber-settings" hidden><div class="field"><label for="amber-python">AmberTools Python（WSL 绝对路径）</label><input class="mono-input" id="amber-python" value="/home/chenz/.local/share/dna-amber/env/bin/python"></div><div class="field"><label for="amber-tleap">tLEaP（WSL 绝对路径）</label><input class="mono-input" id="amber-tleap" value="/home/chenz/.local/share/dna-amber/env/bin/tleap"></div><div class="field"><label for="salt-cation">OPC 配套盐</label><select id="salt-cation"><option value="Na+">NaCl</option><option value="K+">KCl</option></select></div><p class="field-help">原子电荷中和与额外盐对分别计算。OPC 为四位点水，不能使用 spc216.gro。首版不支持菱形十二面体，请明确选择其他盒型；octahedron 是截角八面体。仅生成输入，不自动运行 MD。</p></div>
                       <div class="field-grid three">
                       <div class="field"><label for="temperature">温度 / K</label><input id="temperature" name="temperature" type="number" min="1" value="300"></div>
                       <div class="field"><label for="salt">盐浓度 / M</label><input id="salt" name="salt" type="number" min="0" step="0.01" value="0.15"></div>
@@ -743,8 +745,13 @@
           setInputIfPristine('task-name', parts.name);
         }
         setInputIfPristine('forcefield', resolveForcefieldPath(values.forcefield));
+        ['md_model', 'amber_python', 'amber_tleap', 'salt_cation'].forEach(key => setInputIfPristine(key.replaceAll('_', '-'), values[key]));
         ['temperature', 'salt', 'nvt_ps', 'npt_ps', 'md_ns', 'xtc_ps', 'padding', 'seed', 'ntomp', 'box_type'].forEach(key => setInputIfPristine(key.replace('_', '-'), values[key] ?? environment[key]));
+        setInputIfPristine('relax-box-type', config.box_type);
+        setInputIfPristine('relax-padding', config.padding_nm);
+        setInputIfPristine('relax-salt', config.salt_M);
         updateMode();
+        updateMdModel();
       }
 
       function renderStages() {
@@ -1084,7 +1091,8 @@
         }
         setText('handoff-status', app.state.job ? stateLabel(stageValue('handoff')) : '等待服务端任务状态');
         const config = (app.state.job && app.state.job.config) || {};
-        setText('forcefield-summary', config.forcefield || $('#forcefield').value, 'CHARMM36 .ff 目录待服务端确认');
+        const model = config.md_model || (path ? 'charmm36_tip3p' : $('#md-model').value);
+        setText('forcefield-summary', model === 'charmm36_tip3p' ? (config.forcefield || $('#forcefield').value) : `${model.split('_')[0].toUpperCase()} · OPC`, '力场待服务端确认');
         $('#summary-name').textContent = path ? splitPath(path).name : ($('#task-name').value.trim() || '新任务');
       }
 
@@ -1171,7 +1179,8 @@
       function environmentPayload() {
         const distribution = $('#distribution').value.trim();
         const gmx = $('#gmx-path').value.trim();
-        return { ...(distribution ? { distribution } : {}), ...(gmx ? { gmx } : {}) };
+        return { ...(distribution ? { distribution } : {}), ...(gmx ? { gmx } : {}),
+          md_model: $('#md-model').value, amber_python: $('#amber-python').value.trim(), amber_tleap: $('#amber-tleap').value.trim() };
       }
 
       function actionPayload(action) {
@@ -1255,6 +1264,10 @@
       }
 
       function validateAction(action) {
+        if (action === 'prepare_relax' && app.state.job?.config?.md_model?.startsWith('ol') && $('#relax-box-type').value === 'dodecahedron') {
+          toast('Amber EM 子任务请显式选择 octahedron、cubic 或 triclinic；不支持 dodecahedron。', 'error');
+          return false;
+        }
         if (action === 'gaussian') return requireValue('gaussian-pdb', '已确认的 PDB 完整路径');
         if (action === 'cluster') return requireValue('cluster-selection', 'selection') && requireValue('cluster-output', '新的聚类输出目录') && validNumber('cluster-cutoff', 'cutoff', 0.1) && validNumber('cluster-num', 'num', 1, true) && validNumber('cluster-first', 'first', 0, true) && validNumber('cluster-last', 'last', -1, true) && validNumber('cluster-step', 'step', 1, true);
         if (action === 'prepare_relax') return requireValue('relax-frame', '代表构型 PDB') && requireValue('relax-output', '新的 EM 子任务目录') && validNumber('relax-padding', 'padding', 0) && validNumber('relax-salt', 'salt', 0);
@@ -1346,6 +1359,15 @@
         return [...sequence.toUpperCase().replace(/\s/g, '')].reverse().map(base => pairs[base] || 'N').join('');
       }
 
+      function updateMdModel() {
+        const amber = $('#md-model').value !== 'charmm36_tip3p';
+        $('#charmm-settings').hidden = amber;
+        $('#amber-settings').hidden = !amber;
+        $('#forcefield').required = !amber;
+        renderJobPath();
+        // Keep the selected box visible: never silently turn a dodecahedron into an octahedron.
+      }
+
       function updateMode() {
         const mode = $('input[name="mode"]:checked').value;
         const partner = $('#sequence-b');
@@ -1407,7 +1429,9 @@
         const outputParent = $('#output-parent').value.trim();
         const taskName = $('#task-name').value.trim();
         const forcefield = $('#forcefield').value.trim();
-        if (!sequence || !outputParent || !taskName || !forcefield) { toast('请填写 A 链、CHARMM36 力场目录、任务父目录和新任务名。', 'error'); return; }
+        const mdModel = $('#md-model').value;
+        if (!sequence || !outputParent || !taskName || (mdModel === 'charmm36_tip3p' && !forcefield)) { toast('请填写 A 链、所需力场目录、任务父目录和新任务名。', 'error'); return; }
+        if (mdModel !== 'charmm36_tip3p' && $('#box-type').value === 'dodecahedron') { toast('AmberTools 首版不支持菱形十二面体，请明确选择另一盒型。', 'error'); return; }
         if (/[\\/]/.test(taskName)) { toast('新任务名不能包含路径分隔符。', 'error'); return; }
         const output = joinPath(outputParent, taskName);
         const mode = $('input[name="mode"]:checked').value;
@@ -1415,6 +1439,7 @@
         const payload = {
           sequence, mode, partner, output,
           forcefield,
+          md_model: mdModel, amber_python: $('#amber-python').value.trim(), amber_tleap: $('#amber-tleap').value.trim(), salt_cation: $('#salt-cation').value,
           temperature: numberOrUndefined('temperature'), salt: numberOrUndefined('salt'), nvt_ps: numberOrUndefined('nvt-ps'), npt_ps: numberOrUndefined('npt-ps'), md_ns: numberOrUndefined('md-ns'), xtc_ps: numberOrUndefined('xtc-ps'), padding: numberOrUndefined('padding'), box_type: $('#box-type').value, seed: numberOrUndefined('seed')
         };
         setBusy(button, true);
@@ -1496,6 +1521,7 @@
         bindTabs();
         $('#trajectory-to-vmd').addEventListener('click', () => activateTab('vmd', true));
         $('#job-form').addEventListener('submit', createJob);
+        $('#md-model').addEventListener('change', updateMdModel);
         $('#open-job').addEventListener('click', () => openJob($('#open-job')));
         $('#save-environment').addEventListener('click', () => saveEnvironment($('#save-environment')));
         $('#preset').addEventListener('change', updatePreset);

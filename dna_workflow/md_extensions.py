@@ -17,7 +17,7 @@ import tempfile
 from types import SimpleNamespace
 
 import md_pipeline as md
-from dna_workflow import ENVIRONMENT, pdb_text, read_pdb, restore_identity, save_json, select_dna_atoms, validate_dna
+from dna_workflow import ENVIRONMENT, pdb_text, read_pdb, restore_identity, save_json, select_dna_atoms, validate_dna, validate_job_dna, MD_MODELS
 
 
 BOX_TYPES = ("cubic", "dodecahedron", "octahedron", "triclinic")
@@ -206,10 +206,12 @@ def prepare_relax(args) -> dict:
         raise ValueError("salt must be non-negative")
     cfg = json.loads((parent / "workflow.json").read_text(encoding="utf-8"))
     reference = restore_identity(read_pdb(parent / "topology.pdb"), cfg["strands_5to3"])
-    validate_dna(reference, cfg["strands_5to3"], parent / cfg["forcefield"], hydrogens=True)
+    validate_job_dna(reference, parent, cfg)
     selected = select_dna_atoms(read_pdb(frame), reference)
     selected = [replace(a, serial=i + 1, xyz=b.xyz) for i, (a, b) in enumerate(zip(reference, selected))]
-    validate_dna(selected, cfg["strands_5to3"], parent / cfg["forcefield"], hydrogens=True)
+    validate_job_dna(selected, parent, cfg)
+    if cfg.get("md_model", MD_MODELS[0]) != MD_MODELS[0]:
+        return prepare_amber_relax(args, parent, frame, cfg, selected)
     child = _require_new_directory(args.output)
     try:
         _copy_relax_inputs(parent, child, cfg)
@@ -245,6 +247,41 @@ def prepare_relax(args) -> dict:
               "em_tpr": str(child / "em.tpr"), "mdrun_executed": False, "unrestrained_em": True,
               "removed_posres_defines": removed_posres,
               "note": "Run em.mdrun on the server, return em.tpr/em.gro/em.log, then call verify_relax."}
+    save_json(child / "prepare_relax.json", report)
+    print(json.dumps(report, ensure_ascii=False))
+    return report
+
+
+def prepare_amber_relax(args, parent, frame, cfg, selected):
+    """Reuse the parent's dry Amber topology, replacing only coordinates before solvation."""
+    if args.box_type == "dodecahedron":
+        raise ValueError("AmberTools branch does not support dodecahedron; select another box explicitly")
+    child = _require_new_directory(args.output)
+    for name in ("dna.prmtop", "dna_manifest.json"):
+        shutil.copy2(parent / name, child / name)
+    shutil.copy2(frame, child / "source_frame.pdb")
+    for name in ("topology.pdb", "selected_source_frame.pdb"):
+        (child / name).write_text(pdb_text(selected), encoding="ascii")
+    # Standard Amber ASCII restart: coordinates in Angstrom, without velocities/box.
+    coords = [v for atom in selected for v in atom.xyz]
+    restart = "Representative DNA frame\n" + f"{len(selected):6d}\n"
+    restart += "\n".join("".join(f"{v:12.7f}" for v in coords[i:i+6]) for i in range(0, len(coords), 6)) + "\n"
+    (child / "dna.inpcrd").write_text(restart, encoding="ascii")
+    child_cfg = {**cfg, "role": "representative_relaxation", "source_job": str(parent), "source_frame": str(frame),
+                 "topology_reference": "topology.pdb", "selected_source_frame": "selected_source_frame.pdb",
+                 "box_type": args.box_type, "padding_nm": args.padding, "salt_M": args.salt}
+    save_json(child / "workflow.json", child_cfg)
+    save_json(child / "topology.complete.json", validate_job_dna(selected, child, child_cfg))
+    em_mdp, removed = _unrestrained_em_mdp(parent / "em.mdp")
+    (child / "em.mdp").write_text(em_mdp, encoding="ascii")
+    for stage in ("solvate", "prepare_em"):
+        md.run(SimpleNamespace(job=child, gmx=args.gmx, stage=stage, ntmpi=None, ntomp=None, maxh=None,
+                               noninteractive_terminals=False, terminal_timeout=60.0))
+    report = {"operation": "prepare_relax", "child_job": str(child), "role": "representative_relaxation",
+              "source_job": str(parent), "source_frame": str(frame), "selected_dna_atoms": len(selected),
+              "box_type": args.box_type, "padding_nm": args.padding, "salt_M": args.salt,
+              "em_tpr": str(child / "em.tpr"), "mdrun_executed": False, "unrestrained_em": True,
+              "removed_posres_defines": removed, "md_model": cfg["md_model"], "water": "OPC"}
     save_json(child / "prepare_relax.json", report)
     print(json.dumps(report, ensure_ascii=False))
     return report
@@ -301,7 +338,7 @@ def verify_relax(args) -> dict:
     em = md.verify_return(child, "em", command)
     reference = restore_identity(read_pdb(child / "topology.pdb"), cfg["strands_5to3"])
     relaxed = _whole_em_dna(child, reference, len(cfg["strands_5to3"]), command)
-    check = validate_dna(relaxed, cfg["strands_5to3"], child / cfg["forcefield"], hydrogens=True)
+    check = validate_job_dna(relaxed, child, cfg)
     (child / "relaxed_dna.pdb").write_text(pdb_text(relaxed), encoding="ascii")
     rmsd_raw = _raw_rmsd(reference, relaxed)
     report = {"operation": "verify_relax", "role": "representative_relaxation", "input_frame": cfg["source_frame"],
