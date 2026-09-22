@@ -1,0 +1,1546 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%230e5e60'/%3E%3Cpath d='M22 17h9c9 0 14 6 14 15s-5 15-14 15h-9V17Zm8 23c5 0 8-3 8-8s-3-8-8-8h-2v16h2Z' fill='white'/%3E%3C/svg%3E">
+  <title>DNA Workflow · 科研工作台</title>
+  <style>
+    :root {
+      --canvas: #f7f8fb;
+      --surface: #ffffff;
+      --surface-muted: #f8fafc;
+      --line: #e4e7ec;
+      --line-strong: #d0d5dd;
+      --ink: #101828;
+      --muted: #667085;
+      --quiet: #98a2b3;
+      --teal: #4f46e5;
+      --teal-dark: #3730a3;
+      --teal-pale: #eef2ff;
+      --warning: #b54708;
+      --warning-pale: #fffaeb;
+      --danger: #b42318;
+      --danger-pale: #fef3f2;
+      --success: #027a48;
+      --success-pale: #ecfdf3;
+      --shadow: 0 1px 2px rgb(16 24 40 / 4%);
+      --radius: 12px;
+      --radius-sm: 8px;
+      --ease-out: cubic-bezier(.23, 1, .32, 1);
+      --focus: 0 0 0 3px rgb(14 94 96 / 24%);
+      font-family: Inter, "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", system-ui, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html { background: var(--canvas); }
+    body {
+      min-width: 320px;
+      min-height: 100vh;
+      margin: 0;
+      color: var(--ink);
+      background: var(--canvas);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    button, input, select, textarea { font: inherit; }
+    button { cursor: pointer; }
+    button:disabled { cursor: not-allowed; opacity: .48; }
+    :focus-visible { outline: none; box-shadow: var(--focus); }
+    [hidden] { display: none !important; }
+
+    .app-shell {
+      display: grid;
+      grid-template-columns: 180px minmax(0, 1fr);
+      min-height: 100vh;
+    }
+    .sidebar {
+      min-width: 0;
+      display: flex;
+      position: sticky;
+      top: 0;
+      flex-direction: column;
+      height: 100vh;
+      padding: 20px 12px;
+      border-right: 1px solid var(--line);
+      background: #fbfcfe;
+    }
+    .brand { padding: 4px 10px 22px; }
+    .eyebrow {
+      margin: 0 0 5px;
+      color: #667085;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+    .brand h1 { margin: 0; font-size: 16px; letter-spacing: -.025em; }
+    .brand p { margin: 4px 0 0; color: var(--quiet); font-size: 12px; }
+    .step-nav { display: grid; gap: 3px; }
+    .step {
+      display: grid;
+      grid-template-columns: 20px 1fr;
+      gap: 9px;
+      align-items: center;
+      width: 100%;
+      padding: 9px 10px;
+      border: 0;
+      border-radius: 7px;
+      color: #475467;
+      background: transparent;
+      text-align: left;
+      transition: color 140ms ease, background-color 140ms ease;
+    }
+    .step-number {
+      display: grid;
+      width: 18px;
+      height: 18px;
+      place-items: center;
+      border: 0;
+      border-radius: 5px;
+      color: var(--quiet);
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+    }
+    .step-title { display: block; font-weight: 600; font-size: 13px; }
+    .step-caption { display: none; }
+    .step[aria-selected="true"] { color: var(--teal-dark); background: var(--teal-pale); }
+    .step[aria-selected="true"] .step-number { color: var(--teal); background: #dfe3ff; }
+    @media (hover: hover) and (pointer: fine) {
+      .step:not([aria-selected="true"]):hover { color: #344054; background: #f2f4f7; }
+    }
+    .sidebar-footer {
+      margin-top: auto;
+      padding: 16px 10px 0;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .sidebar-footer strong { display: block; color: var(--ink); font-weight: 650; }
+
+    .workspace { min-width: 0; }
+    .topbar {
+      display: flex;
+      min-height: 60px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 12px clamp(24px, 4vw, 56px);
+      border-bottom: 1px solid var(--line);
+      background: rgb(255 255 255 / 92%);
+    }
+    .topbar-product { display: flex; align-items: center; gap: 9px; color: #344054; font-size: 13px; font-weight: 650; }
+    .topbar-product p { margin: 0; }
+    .product-mark { display: grid; width: 24px; height: 24px; place-items: center; border-radius: 7px; color: white; background: #101828; font-size: 12px; font-weight: 750; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+    .task-status { display: flex; flex: 0 0 auto; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; white-space: nowrap; }
+    .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--quiet); }
+    .status-dot[data-status="running"] { background: var(--warning); }
+    .status-dot[data-status="complete"], .status-dot[data-status="ready"] { background: var(--success); }
+    .status-dot[data-status="error"], .status-dot[data-status="failed"] { background: var(--danger); }
+
+    main { width: min(1260px, 100%); margin: 0 auto; padding: 24px clamp(24px, 4vw, 56px) 24px; }
+    .panel-head { margin: 0 0 18px; }
+    .section-kicker { margin: 0 0 8px; color: var(--teal); font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+    .panel-head h3 { margin: 0; font-size: clamp(29px, 3vw, 36px); line-height: 1.15; letter-spacing: -.045em; }
+    .panel-head p { max-width: 680px; margin: 10px 0 0; color: var(--muted); }
+    .job-path { padding: 8px 10px; overflow: hidden; border: 1px solid var(--line); border-radius: 7px; color: #475467; background: #f8fafc; font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+    .layout-two { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 42px; align-items: start; }
+    .layout-two > *, .environment-grid > * { min-width: 0; }
+    .panel-head .job-path { margin-top: 14px; }
+    .card { padding: 22px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow); }
+    .card + .card { margin-top: 20px; }
+    .card-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 14px; }
+    .card-title h4 { margin: 0; font-size: 16px; letter-spacing: -.015em; }
+    .card-title p { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
+    .field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 18px; }
+    .field-grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .field.full { grid-column: 1 / -1; }
+    label, .field-label { display: block; margin: 0 0 7px; color: #344054; font-size: 12px; font-weight: 650; }
+    .field-help { margin: 6px 0 0; color: var(--muted); font-size: 12px; }
+    input, select {
+      width: 100%;
+      min-height: 42px;
+      padding: 9px 11px;
+      border: 1px solid var(--line-strong);
+      border-radius: 7px;
+      outline: none;
+      color: var(--ink);
+      background: var(--surface);
+      transition: border-color 140ms ease, box-shadow 140ms ease, background-color 140ms ease;
+    }
+    input::placeholder { color: #98a2b3; }
+    input:hover, select:hover { border-color: #98a2b3; }
+    input:focus, select:focus { border-color: var(--teal); box-shadow: var(--focus); }
+    input:disabled { color: #667085; background: #f2f4f7; }
+    .input-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+    .mono, .mono-input { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; }
+    .mono-input { letter-spacing: .02em; }
+    .sequence-field input { font-size: 15px; letter-spacing: .055em; }
+    .radio-set { display: flex; flex-wrap: wrap; gap: 8px; }
+    .radio-set label { display: inline-flex; align-items: center; gap: 7px; min-height: 38px; margin: 0; padding: 8px 11px; border: 1px solid var(--line); border-radius: 7px; color: #475467; font-size: 13px; font-weight: 500; background: var(--surface); }
+    .radio-set input { width: 15px; min-height: auto; height: 15px; margin: 0; accent-color: var(--teal); }
+    .sequence-metrics { display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 14px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: #fcfcfd; }
+    .sequence-metrics > div { display: flex; align-items: baseline; gap: 8px; padding: 6px 14px; border-left: 1px solid var(--line); }
+    .sequence-metrics > div:first-child { border-left: 0; }
+    .sequence-metrics span { color: #101828; font-size: 18px; font-weight: 680; letter-spacing: -.025em; }
+    .sequence-metrics small { color: var(--muted); font-size: 12px; }
+    .callout { display: flex; gap: 10px; margin-top: 18px; padding: 12px 13px; border: 1px solid #fedf89; border-radius: 8px; color: #93370d; background: var(--warning-pale); font-size: 12px; }
+    .callout strong { color: #7a2e0e; }
+    .callout > span:first-child { flex-shrink: 0; white-space: nowrap; }
+    .callout[data-tone="teal"] { border-color: #c7d7fe; color: #3730a3; background: var(--teal-pale); }
+    .callout[data-tone="danger"] { border-color: #fecdca; color: #b42318; background: var(--danger-pale); }
+    .callout + .field-grid, .callout + .action-row { margin-top: 18px; }
+    .compact-table { width: 100%; margin-top: 14px; border: 1px solid var(--line); border-radius: 8px; border-collapse: separate; border-spacing: 0; overflow: hidden; font-size: 12px; }
+    .compact-table th, .compact-table td { padding: 9px 10px; border-bottom: 1px solid var(--line); text-align: left; }
+    .compact-table th { color: #475467; background: #f8fafc; font-weight: 650; }
+    .compact-table tr:last-child td { border-bottom: 0; }
+    details { margin-top: 14px; border: 1px solid var(--line); border-radius: 8px; background: #fcfcfd; }
+    summary { display: flex; align-items: center; justify-content: space-between; min-height: 48px; padding: 0 14px; color: #344054; cursor: pointer; font-size: 13px; font-weight: 650; list-style: none; }
+    summary::-webkit-details-marker { display: none; }
+    .setup-details summary span:last-child { color: var(--muted); font-size: 12px; font-weight: 500; }
+    summary::marker { color: var(--teal); }
+    details[open] summary { border-bottom: 1px solid var(--line); }
+    .details-body { display: grid; gap: 18px; padding: 18px; background: var(--surface); }
+    .action-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 24px; }
+    .button {
+      display: inline-flex;
+      min-height: 40px;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      padding: 9px 13px;
+      border: 1px solid var(--line-strong);
+      border-radius: 7px;
+      color: #344054;
+      background: var(--surface);
+      font-size: 13px;
+      font-weight: 650;
+      transition: transform 120ms var(--ease-out), border-color 140ms ease, background-color 140ms ease, color 140ms ease;
+    }
+    .button:active:not(:disabled) { transform: scale(.98); }
+    .button.primary { border-color: #101828; color: white; background: #101828; }
+    .button.primary:hover:not(:disabled) { border-color: #344054; background: #344054; }
+    .button.quiet { color: #344054; border-color: var(--line-strong); background: var(--surface); }
+    @media (hover: hover) and (pointer: fine) {
+      .button:not(:disabled):not(.primary):hover { border-color: #98a2b3; background: #f9fafb; }
+    }
+    .button[data-busy="true"]::after { content: "处理中"; font-size: 12px; font-weight: 500; opacity: .82; }
+    .button[data-busy="true"] .button-label { display: none; }
+    .side-note, .task-summary { padding: 20px 0; border-top: 1px solid var(--line); background: transparent; }
+    .side-note + .side-note { margin-top: 20px; }
+    .side-note h4, .task-summary h4 { margin: 0; font-size: 14px; }
+    .side-note p, .task-summary p { margin: 7px 0 0; color: var(--muted); font-size: 12px; }
+    .side-note dl, .task-summary dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px 12px; margin: 18px 0 0; font-size: 12px; }
+    .side-note dt { color: var(--quiet); }
+    .side-note dd, .task-summary dd { min-width: 0; margin: 0; color: #344054; overflow-wrap: anywhere; }
+    .task-summary { position: sticky; top: 84px; padding: 18px; border: 1px solid var(--line); border-radius: 10px; background: #fcfcfd; }
+    .summary-label { display: flex; align-items: center; gap: 7px; margin-bottom: 15px; color: var(--muted); font-size: 12px; font-weight: 650; }
+    .summary-label span { width: 7px; height: 7px; border-radius: 50%; background: var(--teal); }
+    .task-summary h4 { font-size: 18px; letter-spacing: -.025em; }
+    .task-summary .job-path { margin-top: 18px; }
+    .sequence-preview { margin: 15px 0 0; padding: 13px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-muted); }
+    .sequence-preview span { display: block; }
+    .sequence-preview .strand-label { margin-bottom: 4px; color: var(--quiet); font-family: inherit; font-size: 11px; font-weight: 650; letter-spacing: .06em; }
+    .sequence-preview code { color: var(--teal-dark); font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 12px; overflow-wrap: anywhere; }
+
+    .environment-grid { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 42px; align-items: start; }
+    .stage-list { display: grid; gap: 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+    .stage-row { display: grid; grid-template-columns: minmax(120px, 1fr) auto auto; gap: 14px; align-items: center; padding: 14px 15px; border-top: 1px solid var(--line); background: var(--surface); }
+    .stage-row:first-child { border-top: 0; }
+    .stage-name { font-weight: 650; font-size: 13px; }
+    .stage-detail { color: var(--muted); font-size: 12px; }
+    .tag { display: inline-flex; min-width: 60px; justify-content: center; padding: 4px 8px; border: 1px solid #d0d5dd; border-radius: 999px; color: #667085; background: #f9fafb; font-size: 12px; font-weight: 650; }
+    .tag[data-state="complete"], .tag[data-state="ready"] { border-color: #abefc6; color: var(--success); background: var(--success-pale); }
+    .tag[data-state="blocked"] { border-color: #fedf89; color: var(--warning); background: var(--warning-pale); }
+    .tag[data-state="error"], .tag[data-state="failed"] { border-color: #fecdca; color: var(--danger); background: var(--danger-pale); }
+    .stage-action { min-width: 90px; }
+    .md-stage { display: grid; gap: 16px; padding: 20px; border-top: 1px solid var(--line); background: var(--surface); }
+    .md-stage-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+    .md-stage-info { display: grid; gap: 8px; padding: 0; }
+    .md-stage-tpr { overflow-wrap: anywhere; color: #344054; font: 12px/1.5 ui-monospace, "Cascadia Code", Consolas, monospace; }
+    .md-stage-meta { display: grid; grid-template-columns: 86px minmax(0, 1fr); gap: 9px; color: var(--muted); font-size: 12px; }
+    .md-stage-meta-label { color: #475467; font-weight: 650; }
+    .md-stage-meta span:last-child { overflow-wrap: anywhere; }
+    .md-stage-command { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: stretch; }
+    .md-stage-command code { min-width: 0; padding: 10px 11px; overflow: auto; border: 1px solid var(--line); border-radius: 7px; color: #344054; background: #f8fafc; font: 12px/1.5 ui-monospace, "Cascadia Code", Consolas, monospace; white-space: nowrap; }
+    .md-stage-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .md-stage[data-status="prepared"] .tag { border-color: #fedf89; color: var(--warning); background: var(--warning-pale); }
+    .md-stage[data-status="returned"] .tag { border-color: #c7d7fe; color: #3730a3; background: var(--teal-pale); }
+    .md-stage[data-status="verified"] .tag { border-color: #abefc6; color: var(--success); background: var(--success-pale); }
+    .empty-state { padding: 28px 16px; color: var(--muted); text-align: center; font-size: 13px; }
+    .path-list { display: grid; gap: 7px; margin: 0; padding: 0; list-style: none; }
+    .path-list li { padding: 10px 11px; border: 1px solid var(--line); border-radius: 7px; color: #475467; background: var(--surface-muted); font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 12px; overflow-wrap: anywhere; }
+    .dos-steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 22px 0; padding: 0; list-style: none; }
+    .dos-steps li { padding: 12px 14px; border: 1px solid var(--line); border-radius: 9px; background: white; }
+    .dos-steps strong { display: block; font-size: 12px; font-weight: 650; }
+    .dos-steps span { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; }
+    .dos-steps li[data-done="true"] { border-color: #c7d7fe; background: var(--teal-pale); }
+    .dos-layout { display: grid; grid-template-columns: minmax(0, 1fr) 236px; gap: 24px; align-items: start; }
+    .dos-layout > * { min-width: 0; }
+    .dos-number { display: inline-grid; width: 24px; height: 24px; margin-right: 8px; place-items: center; border-radius: 6px; background: #f2f4f7; color: #667085; font-size: 11px; vertical-align: 1px; }
+    .dos-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 20px 0 14px; }
+    .dos-metrics strong { display: block; font-size: 22px; font-weight: 650; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
+    .dos-metrics span { color: var(--muted); font-size: 11px; }
+    .dos-note { margin: 12px 0 0; padding: 11px 12px; border-radius: 7px; background: #f8fafc; color: #475467; font-size: 12px; overflow-wrap: anywhere; }
+    .dos-status { margin: 14px 0 0; color: #475467; font-size: 12px; overflow-wrap: anywhere; }
+    .dos-sidebar { display: grid; gap: 20px; }
+    .dos-sidebar .card { padding: 17px; }
+    .dos-sidebar h4 { margin: 0 0 8px; font-size: 13px; }
+    .dos-sidebar p { margin: 8px 0; color: var(--muted); font-size: 12px; }
+    .dos-command { position: relative; margin-top: 12px; }
+    .dos-command code { display: block; padding: 10px; border: 1px solid var(--line); border-radius: 7px; background: #f8fafc; font-size: 11px; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .dos-command button { margin-top: 5px; min-height: 28px; padding: 4px 8px; font-size: 11px; }
+    .dos-preview { margin: 20px 0 0; }
+    .dos-preview img { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: 8px; background: white; }
+    .dos-preview figcaption { margin-top: 9px; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+    @media (max-width: 1080px) { .dos-layout { grid-template-columns: minmax(0, 1fr); } .dos-sidebar { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 620px) { .dos-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); } .dos-sidebar { grid-template-columns: minmax(0, 1fr); } }
+    .vmd-command { display: grid; gap: 12px; padding: 16px; border: 1px solid var(--line); border-radius: 8px; background: #fcfcfd; }
+    .vmd-command p { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
+
+    .log-region { margin-top: 24px; }
+    .log-drawer {
+      min-width: 0;
+      width: 100%;
+      margin: 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+    }
+    .log-drawer summary { display: flex; min-height: 46px; align-items: center; justify-content: space-between; padding: 0 16px; color: #344054; list-style: none; }
+    .log-drawer summary::-webkit-details-marker { display: none; }
+    .log-drawer summary::after { content: "展开"; color: var(--muted); font-size: 12px; font-weight: 500; }
+    .log-drawer[open] summary::after { content: "收起"; }
+    .log-title { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 650; }
+    .log-title::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--teal); }
+    #task-log { max-height: min(34vh, 310px); margin: 0; padding: 14px 16px 18px; overflow: auto; overflow-wrap: anywhere; border-top: 1px solid var(--line); color: #344054; background: #fcfcfd; font: 12px/1.65 ui-monospace, "Cascadia Code", Consolas, monospace; white-space: pre-wrap; }
+    .toast-region { position: fixed; z-index: 5; top: 18px; right: 18px; display: grid; width: min(360px, calc(100vw - 36px)); gap: 8px; pointer-events: none; }
+    .toast { padding: 12px 13px; border: 1px solid #c7d7fe; border-radius: 8px; color: #3730a3; background: #f5f7ff; box-shadow: 0 10px 26px rgb(16 24 40 / 12%); font-size: 12px; opacity: 1; transform: translateY(0); transition: opacity 180ms var(--ease-out), transform 180ms var(--ease-out); }
+    .toast[data-tone="error"] { border-color: #fecdca; color: #b42318; background: var(--danger-pale); }
+    .toast.is-leaving { opacity: 0; transform: translateY(-8px); }
+
+    @media (max-width: 900px) {
+      .app-shell { grid-template-columns: minmax(0, 1fr); }
+      .sidebar { position: static; height: auto; padding: 16px 18px 12px; border-right: 0; border-bottom: 1px solid var(--line); }
+      .brand { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 0 4px 15px; }
+      .brand p { margin: 0; }
+      .step-nav { grid-template-columns: repeat(5, minmax(108px, 1fr)); overflow-x: auto; padding-bottom: 5px; }
+      .step { grid-template-columns: 20px 1fr; min-width: 126px; padding: 8px; }
+      .step-number { width: 22px; height: 22px; }
+      .sidebar-footer { display: none; }
+      .layout-two, .environment-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 620px) {
+      .topbar { min-height: 66px; padding: 12px 18px; }
+      .topbar h2 { font-size: 16px; }
+      .task-status { font-size: 11px; }
+      main { padding: 28px 18px 28px; }
+      .panel-head { display: block; margin-bottom: 22px; }
+      .job-path { margin-top: 14px; max-width: 100%; }
+      .field-grid, .field-grid.three { grid-template-columns: 1fr; }
+      .stage-row { grid-template-columns: 1fr auto; }
+      .stage-detail { grid-column: 1 / -1; order: 3; }
+      .stage-action { grid-column: 2; grid-row: 1; }
+      .md-stage-command { grid-template-columns: 1fr; }
+      .md-stage-command code { white-space: pre-wrap; }
+      .md-stage-meta { grid-template-columns: 1fr; gap: 2px; }
+      .card { padding: 20px; }
+      .sequence-metrics { grid-template-columns: 1fr; }
+      .sequence-metrics > div { border-top: 1px solid var(--line); border-left: 0; }
+      .sequence-metrics > div:first-child { border-top: 0; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 1ms !important; animation-duration: 1ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="工作流步骤">
+      <div class="brand">
+        <div>
+          <p class="eyebrow">DNA workflow</p>
+          <h1>计算工作台</h1>
+        </div>
+        <p>本地任务编排</p>
+      </div>
+      <nav class="step-nav" role="tablist" aria-orientation="vertical" aria-label="工作步骤">
+        <button class="step" id="tab-sequence" role="tab" aria-selected="true" aria-controls="panel-sequence" tabindex="0" data-tab="sequence">
+          <span class="step-number">01</span><span><span class="step-title">序列与任务</span><span class="step-caption">建立计算目录</span></span>
+        </button>
+        <button class="step" id="tab-md" role="tab" aria-selected="false" aria-controls="panel-md" tabindex="-1" data-tab="md">
+          <span class="step-number">02</span><span><span class="step-title">WSL MD 准备</span><span class="step-caption">逐步构建体系</span></span>
+        </button>
+        <button class="step" id="tab-vmd" role="tab" aria-selected="false" aria-controls="panel-vmd" tabindex="-1" data-tab="vmd">
+          <span class="step-number">03</span><span><span class="step-title">VMD / 构型</span><span class="step-caption">手工核验帧</span></span>
+        </button>
+        <button class="step" id="tab-gaussian" role="tab" aria-selected="false" aria-controls="panel-gaussian" tabindex="-1" data-tab="gaussian">
+          <span class="step-number">04</span><span><span class="step-title">Gaussian</span><span class="step-caption">准备量化输入</span></span>
+        </button>
+        <button class="step" id="tab-results" role="tab" aria-selected="false" aria-controls="panel-results" tabindex="-1" data-tab="results">
+          <span class="step-number">05</span><span><span class="step-title">DoS 与结果</span><span class="step-caption">追踪产物边界</span></span>
+        </button>
+      </nav>
+      <div class="sidebar-footer">本地 DNA 模拟流程</div>
+    </aside>
+
+    <div class="workspace">
+      <header class="topbar">
+        <div class="topbar-product"><span class="product-mark" aria-hidden="true">D</span><p>DNA workflow</p><span id="current-title" class="sr-only">序列与任务</span></div>
+        <div class="task-status" aria-live="polite"><span class="status-dot" id="task-dot" data-status="idle"></span><span id="task-status-text">正在读取服务状态</span></div>
+      </header>
+
+      <main>
+        <section id="panel-sequence" role="tabpanel" aria-labelledby="tab-sequence">
+          <div class="panel-head"><div><h3>序列与任务</h3><p>输入 DNA 序列，创建可继续准备的本地计算任务。</p></div></div>
+          <div class="layout-two">
+            <div>
+              <form id="job-form" novalidate>
+                <article class="card">
+                  <div class="field-grid">
+                    <div class="field full sequence-field"><label for="sequence-a">A 链（5′→3′）</label><input class="mono-input" id="sequence-a" name="sequence" value="GATGATGGTTGCTGGAGTTGGTGTGAA" autocomplete="off" spellcheck="false" required></div>
+                    <div class="field full sequence-field"><label for="sequence-b" id="partner-label">B 链（自动反向互补，5′→3′）</label><input class="mono-input" id="sequence-b" name="partner" value="TTCACACCAACTCCAGCAACCATCATC" autocomplete="off" spellcheck="false" readonly aria-describedby="partner-help"><p class="field-help" id="partner-help">由 A 链实时生成；如需自定义 B 链，请选择“指定 B 链”。</p></div>
+                    <fieldset class="field full" style="border:0;padding:0;margin:0"><legend class="field-label">构型模式</legend><div class="radio-set"><label><input type="radio" name="mode" value="single">单链</label><label><input type="radio" name="mode" value="duplex" checked>双链 · 自动反向互补</label><label><input type="radio" name="mode" value="partner">双链 · 指定 B 链</label></div></fieldset>
+                    <div class="field"><label for="preset">碱基预设</label><select id="preset" name="preset"><option value="normal" selected>正常序列</option><option value="o6meg">O6‑MeG（暂不支持）</option></select></div>
+                    <div class="field"><label for="task-name">新任务名</label><input id="task-name" class="mono-input" value="dna_27bp" placeholder="例如 dna_27bp" autocomplete="off" required></div>
+                  </div>
+                  <div class="sequence-metrics" aria-live="polite"><div><span id="metric-length">—</span><small>长度</small></div><div><span id="metric-gc">—</span><small>A 链 GC</small></div><div><span id="metric-modification">—</span><small>修饰标记</small></div></div>
+                  <div class="callout" id="preset-notice" data-tone="teal" hidden aria-live="polite"><span>注</span><span><strong>正常预设。</strong>请在开始 MD 前确认链方向、末端和修饰方案。</span></div>
+                  <details class="setup-details">
+                    <summary><span>计算设置</span><span>力场与 MD 参数</span></summary>
+                    <div class="details-body">
+                      <div class="field"><label for="forcefield">CHARMM36 力场目录</label><div class="input-row"><input class="mono-input" id="forcefield" name="forcefield" value="D:\data\DNA DoS\accept file\charmm36-jul2022.ff" autocomplete="off" required><button class="button quiet" type="button" data-submit data-browse="directory" data-target="forcefield"><span class="button-label">选择目录</span></button></div><p class="field-help">仅支持包含 <span class="mono">na.rtp</span> 的 CHARMM36 <span class="mono">.ff</span> 目录。</p></div>
+                      <div class="field-grid three">
+                      <div class="field"><label for="temperature">温度 / K</label><input id="temperature" name="temperature" type="number" min="1" value="300"></div>
+                      <div class="field"><label for="salt">盐浓度 / M</label><input id="salt" name="salt" type="number" min="0" step="0.01" value="0.15"></div>
+                      <div class="field"><label for="padding">溶剂边界 / nm</label><input id="padding" name="padding" type="number" min="0" step="0.1" value="1.0"></div>
+                      <div class="field"><label for="box-type">水盒类型</label><select id="box-type" name="box_type"><option value="cubic">cubic</option><option value="dodecahedron" selected>dodecahedron</option><option value="octahedron">octahedron</option><option value="triclinic">triclinic（矩形默认角）</option></select><p class="field-help">仅在创建新任务时提交。既有任务保持原 config；其原默认值已是 dodecahedron。</p></div>
+                      <div class="field"><label for="nvt-ps">NVT / ps</label><input id="nvt-ps" name="nvt_ps" type="number" min="1" value="100"></div>
+                      <div class="field"><label for="npt-ps">NPT / ps</label><input id="npt-ps" name="npt_ps" type="number" min="1" value="100"></div>
+                      <div class="field"><label for="md-ns">生产 MD / ns</label><input id="md-ns" name="md_ns" type="number" min="0" step="0.1" value="10"></div>
+                      <div class="field"><label for="xtc-ps">轨迹间隔 / ps</label><input id="xtc-ps" name="xtc_ps" type="number" min="1" value="10"></div>
+                      <div class="field"><label for="seed">随机种子</label><input id="seed" name="seed" type="number" min="0" placeholder="后端默认"></div>
+                      </div>
+                    </div>
+                  </details>
+                  <div class="field" style="margin-top:14px"><label for="output-parent">保存位置</label><div class="input-row"><input id="output-parent" class="mono-input" placeholder="选择新任务的父目录" autocomplete="off" required><button class="button quiet" type="button" data-submit data-browse="directory" data-target="output-parent"><span class="button-label">选择目录</span></button></div></div>
+                  <div class="action-row"><button class="button primary" id="create-job" type="submit" data-submit><span class="button-label">创建任务</span></button><button class="button" id="open-job" type="button" data-submit><span class="button-label">选择并打开已有任务</span></button></div>
+                </article>
+              </form>
+            </div>
+            <aside class="task-summary"><div class="summary-label"><span></span>当前任务</div><h4 id="summary-name">尚未创建</h4><p id="summary-mode">双链 · 自动反向互补</p><div class="job-path" id="job-path" title="尚未打开任务">尚未打开任务</div><dl><dt>力场</dt><dd id="forcefield-summary">CHARMM36 .ff 目录</dd><dt>修饰</dt><dd>O6‑MeG 暂不支持</dd><dt>生产 MD</dt><dd>不自动运行 100 ns</dd><dt>DoS</dt><dd>Gaussian V2 · 超算 GPU 交接</dd></dl><code id="preview-a" hidden>GATGATGGTTGCTGGAGTTGGTGTGAA</code><code id="preview-b" hidden>TTCACACCAACTCCAGCAACCATCATC</code></aside>
+          </div>
+        </section>
+
+        <section id="panel-md" role="tabpanel" aria-labelledby="tab-md" hidden>
+          <div class="panel-head"><div><h3>WSL MD 准备</h3><p>本机只生成 GROMACS TPR；每个阶段都在超算运行，并将结果复制回当前任务目录后核验。</p></div><div class="job-path" id="md-job-path">尚未打开任务</div></div>
+          <div class="environment-grid">
+            <div>
+              <details class="setup-details" style="margin-top:0;margin-bottom:18px">
+                <summary><span>运行环境</span><span>展开检测 WSL 与 grompp</span></summary>
+                <div class="details-body">
+                <div class="field-grid">
+                  <div class="field"><label for="distribution">WSL 发行版</label><input id="distribution" data-environment name="distribution" value="Ubuntu-24.04" placeholder="例如 Ubuntu-24.04" autocomplete="off"></div>
+                  <div class="field"><label for="gmx-path">gmx 路径</label><div class="input-row"><input id="gmx-path" data-environment class="mono-input" name="gmx" value="/opt/gromacs/2025.4/bin/gmx" placeholder="例如 /usr/bin/gmx" autocomplete="off"><button class="button quiet" type="button" data-submit data-browse="file"><span class="button-label">选择文件</span></button></div></div>
+                  <input id="ntomp" type="hidden">
+                </div>
+                <div class="action-row"><button class="button primary" id="save-environment" type="button" data-submit><span class="button-label">保存环境并检测</span></button></div>
+                <p class="field-help" style="margin-top:12px">本机环境仅用于生成输入与 TPR，不执行 NVT、NPT 或生产 MD。</p>
+                </div>
+              </details>
+              <article class="card">
+                <div class="card-title"><div><h4>阶段准备与回传核验</h4><p>拓扑和溶剂化在本机完成；EM、NVT、NPT、MD 均按“生成 TPR → 超算运行 → 复制回传 → 核验”进行。</p></div></div>
+                <div class="stage-list" id="stage-list" aria-live="polite"><div class="empty-state">读取任务状态后显示可执行步骤。</div></div>
+              </article>
+              <article class="card" id="trajectory-step">
+                <div class="card-title"><div><h4>MD轨迹处理 · 进入VMD前</h4><p>恢复完整链 → 双链同周期像 → DNA整体居中 → 去水和离子。</p></div></div>
+                <p class="field-help">输入当前任务的 md.xtc、配套 md.tpr 和 topology.pdb；保留DNA全部原子及氢，不改变帧时间，不进行构象拟合。</p>
+                <p class="field-help">输出：dna_whole.xtc、dna.pdb、dna.tpr。原始轨迹不覆盖。</p>
+                <p id="trajectory-status" role="status" class="field-help" style="margin-top:12px">打开任务后检查输入。</p>
+                <div class="action-row"><button class="button primary" id="handoff" type="button" data-submit data-action="handoff"><span class="button-label">处理MD轨迹</span></button><button class="button" type="button" id="trajectory-to-vmd">下一步：VMD / 构型</button></div>
+              </article>
+            </div>
+            <aside class="side-note"><h4>当前环境状态</h4><dl id="environment-summary"><dt>发行版</dt><dd>未返回</dd><dt>gmx</dt><dd>未返回</dd></dl><div class="callout" data-tone="teal" style="margin-top:18px"><span>回传方式</span><span>在超算运行每条命令后，将结果文件复制回此任务目录，再点击对应阶段的“核验回传”。</span></div></aside>
+          </div>
+        </section>
+
+        <section id="panel-vmd" role="tabpanel" aria-labelledby="tab-vmd" hidden>
+          <div class="panel-head"><div><h3>VMD / 构型</h3><p>从已准备的轨迹中手动确认构型。帧号和时间由真实轨迹提供，前端不换算或虚构。</p></div><div class="job-path" id="vmd-job-path">尚未打开任务</div></div>
+          <div class="layout-two">
+            <div>
+            <article class="card">
+              <div class="card-title"><div><h4>查看与选择构型</h4><p>请先完成“WSL MD准备”末尾的MD轨迹处理，再打开VMD。</p></div></div>
+              <input id="vmd-frame" type="hidden"><input id="vmd-time" type="hidden">
+              <div class="vmd-command"><div><span class="field-label">VMD 选帧命令</span><p>加载轨迹后，将下列命令中的 <span class="mono">&lt;frame&gt;</span> 换为要查看的帧号。</p></div><div class="input-row"><input id="vmd-select-command" class="mono-input" readonly value="animate goto &lt;frame&gt;"><button class="button quiet" id="copy-vmd-command" type="button" data-submit><span class="button-label">复制命令</span></button></div></div>
+              <div class="callout" data-tone="teal"><span>提示</span><span>周期像处理不等于构象聚类；若DNA真实解链，不应把它解释为已恢复配对。请在VMD检查轨迹并选择代表帧。</span></div>
+              <div class="action-row"><button class="button primary" id="open-vmd" type="button" data-submit data-action="open_vmd"><span class="button-label">在 VMD 中打开</span></button><button class="button" id="open-tk" type="button" data-submit data-action="open_tk"><span class="button-label">打开原生 Tk 控制台</span></button></div>
+              <p id="vmd-tk-result" class="field-help" role="status">由后端生成并启动原生 <span class="mono">vmd_open_tk.tcl</span>。</p>
+            </article>
+            <article class="card">
+              <div class="card-title"><div><h4>轨迹聚类</h4><p>默认不自动运行。最多返回 <span class="mono">num</span> 个簇及 unclustered；帧时间读不到时不编造。</p></div></div>
+              <div class="field-grid three">
+                <div class="field full"><label for="cluster-selection">selection</label><input id="cluster-selection" class="mono-input" value="not hydrogen" autocomplete="off"></div>
+                <div class="field full"><label for="cluster-algorithm">聚类算法</label><select id="cluster-algorithm"><option value="gromos" selected>独立 GROMOS 式邻域聚类（推荐）</option><option value="vmd">VMD measure cluster（仅供对照，本机 fitrmsd 存在异常）</option></select></div>
+                <div class="field"><label for="cluster-distfunc">distfunc</label><select id="cluster-distfunc"><option value="fitrmsd" selected>fitrmsd</option><option value="rmsd">rmsd</option></select></div>
+                <div class="field"><label for="cluster-cutoff">cutoff / Å</label><input id="cluster-cutoff" type="number" min="0.1" step="0.1" value="2.5"></div>
+                <div class="field"><label for="cluster-num">num</label><input id="cluster-num" type="number" min="1" step="1" value="5"></div>
+                <div class="field"><label for="cluster-first">first</label><input id="cluster-first" type="number" min="0" step="1" value="0"></div>
+                <div class="field"><label for="cluster-last">last</label><input id="cluster-last" type="number" min="-1" step="1" value="-1"></div>
+                <div class="field"><label for="cluster-step">step</label><input id="cluster-step" type="number" min="1" step="1" value="10"></div>
+                <div class="field full"><label for="cluster-output">新建输出目录（不得覆盖）</label><div class="input-row"><input id="cluster-output" class="mono-input" placeholder="选择父目录后输入新目录名" autocomplete="off"><button class="button quiet" type="button" data-submit data-browse="directory" data-target="cluster-output"><span class="button-label">选择目录</span></button></div></div>
+              </div>
+              <p class="field-help">fitrmsd 去除每对帧的平移与旋转。独立算法的 cutoff 是种子邻域半径，不是簇内最大两两距离；num 是最多提取簇数。先用 step=100 检查，再加密采样。距离计算量随采样帧数平方增长，输出 pair_distances.csv；代表构型为真实 medoid。</p>
+              <p id="cluster-result" class="field-help" role="status">完成后，代表构型将作为 <span class="mono">output/dominant.pdb</span> 回填到显式溶剂 EM。</p>
+              <div class="action-row"><button class="button primary" type="button" data-submit data-action="cluster"><span class="button-label">运行聚类</span></button></div>
+            </article>
+            </div>
+            <aside class="side-note"><h4>构型查看</h4><p>在 VMD 中审阅轨迹并选择用于后续计算的 PDB 文件。</p><dl><dt>交接状态</dt><dd id="handoff-status">可由人工服务器回传处理</dd><dt>打开 VMD</dt><dd id="vmd-input-status">需服务端回传 dna.pdb + dna_whole.xtc</dd><dt>本机 VMD</dt><dd>D:\software\vmd 1.9.3\vmd.exe</dd></dl></aside>
+          </div>
+        </section>
+
+        <section id="panel-gaussian" role="tabpanel" aria-labelledby="tab-gaussian" hidden>
+          <div class="panel-head"><div><h3>Gaussian</h3><p>生成或交接 Gaussian 准备任务。该界面不自动提交超算作业。</p></div><div class="job-path" id="gaussian-job-path">尚未打开任务</div></div>
+          <div class="layout-two">
+            <div>
+            <article class="card">
+              <div class="card-title"><div><h4>代表构型显式溶剂 EM</h4><p>创建独立子任务并生成 <span class="mono">em.tpr</span>，不在本机运行 MD。超算执行 <span class="mono">gmx mdrun -deffnm em</span> 后，再回传核验。</p></div></div>
+              <div class="field-grid">
+                <div class="field full"><label for="relax-frame">frame（完整 PDB 路径）</label><div class="input-row"><input id="relax-frame" class="mono-input" placeholder="选择代表构型 PDB" autocomplete="off"><button class="button quiet" type="button" data-submit data-browse="file" data-target="relax-frame"><span class="button-label">选择 PDB</span></button></div></div>
+                <div class="field"><label for="relax-padding">padding / nm</label><input id="relax-padding" type="number" min="0" step="0.1" value="1.5"></div>
+                <div class="field"><label for="relax-salt">salt / M</label><input id="relax-salt" type="number" min="0" step="0.01" value="0.15"></div>
+                <div class="field"><label for="relax-box-type">box_type</label><select id="relax-box-type"><option value="cubic">cubic</option><option value="dodecahedron" selected>dodecahedron</option><option value="octahedron">octahedron</option><option value="triclinic">triclinic（矩形默认角）</option></select></div>
+                <div class="field full"><label for="relax-output">新建子任务目录（不得覆盖）</label><div class="input-row"><input id="relax-output" class="mono-input" placeholder="选择父目录后输入新目录名" autocomplete="off"><button class="button quiet" type="button" data-submit data-browse="directory" data-target="relax-output"><span class="button-label">选择目录</span></button></div></div>
+              </div>
+              <div class="callout"><span>边界</span><span>显式溶剂 EM 会改变原 MD 构型，不保证改善 SCF；它始终是独立子作业，不能默默替代原始帧。</span></div>
+              <p id="relax-prepare-result" class="field-help" role="status">提交后生成 em.tpr；计算资源仍为超算。</p>
+              <div class="action-row"><button class="button primary" type="button" data-submit data-action="prepare_relax"><span class="button-label">生成 EM TPR</span></button></div>
+              <div class="field" style="margin-top:20px"><label for="relax-child-job">回传后的 child_job 目录</label><input id="relax-child-job" class="mono-input" placeholder="prepare_relax 返回的子任务目录" autocomplete="off"><p class="field-help">核验将导出 <span class="mono">relaxed_dna.pdb</span>；成功后仅回填 Gaussian 输入，不自动运行 Gaussian。</p></div>
+              <p id="relax-verify-result" class="field-help" role="status">等待超算完成 EM 并回传。</p>
+              <div class="action-row"><button class="button" type="button" data-submit data-action="verify_relax"><span class="button-label">核验 EM 回传</span></button></div>
+            </article>
+            <article class="card">
+              <div class="card-title"><div><h4>量化计算准备</h4><p>所有字段传递给 <span class="mono">gaussian</span> action；具体 route 与提交策略由后端确定。</p></div></div>
+              <div class="field-grid">
+                <div class="field full"><label for="gaussian-pdb">选定 PDB 完整路径</label><div class="input-row"><input id="gaussian-pdb" class="mono-input" placeholder="选择已经确认的 selected.pdb" autocomplete="off"><button class="button quiet" type="button" data-submit data-browse="file" data-target="gaussian-pdb"><span class="button-label">选择 PDB</span></button></div><p class="field-help">按后端契约作为 <span class="mono">frame</span> 字段提交，值为完整 PDB 路径而非帧号。</p></div>
+                <div class="field full"><label for="gaussian-job">来源任务目录（可选）</label><input id="gaussian-job" class="mono-input" placeholder="EM 子任务目录，用于模型归属" autocomplete="off"><p class="field-help">仅作为 <span class="mono">gaussian_job</span> 归属字段，不改变原始 MD 任务。</p></div>
+                <div class="field"><label for="gaussian-time">time_ps</label><input id="gaussian-time" type="number" min="0" step="any" placeholder="对应真实时间（可选）"></div>
+                <div class="field"><label for="gaussian-nproc">nproc</label><input id="gaussian-nproc" type="number" min="1" value="8"></div>
+                <div class="field"><label for="gaussian-memory">memory</label><input id="gaussian-memory" placeholder="例如 16GB"></div>
+                <div class="field"><label for="dispersion">dispersion</label><select id="dispersion"><option value="none">无（当前复现基线）</option><option value="GD3BJ">D3(BJ)</option><option value="GD3">D3</option></select></div>
+                <div class="field full"><label for="gaussian-output">输出路径</label><div class="input-row"><input id="gaussian-output" class="mono-input" placeholder="选择 Gaussian 输出目录或文件前缀" autocomplete="off"><button class="button quiet" type="button" data-submit data-browse="directory" data-target="gaussian-output"><span class="button-label">选择目录</span></button></div></div>
+              </div>
+              <div class="callout"><span>边界</span><span><strong>不自动提交超算。</strong>本动作只用于后端定义的 Gaussian 准备；提交、调度资源和实际计算由人工复核后完成。</span></div>
+              <div class="action-row"><button class="button primary" id="gaussian-action" type="button" data-submit data-action="gaussian"><span class="button-label">准备 Gaussian 输入</span></button></div>
+            </article>
+            </div>
+            <aside class="side-note"><h4>输入文件</h4><p>选择已经确认的 PDB 文件，再生成 Gaussian 输入。</p><dl><dt>自动提交</dt><dd>不提供</dd><dt>输入</dt><dd>PDB 完整路径</dd><dt>结果</dt><dd>转至 DoS 与结果追踪</dd></dl></aside>
+          </div>
+        </section>
+
+        <section id="panel-results" role="tabpanel" aria-labelledby="tab-results" hidden>
+          <div class="panel-head"><div><h3>DoS 与结果</h3><p>从 Gaussian 矩阵到全空间二维 DoS。本机准备计算包，超算求解，回传后出图。</p></div><div class="job-path" id="results-job-path">尚未打开任务</div></div>
+          <ol class="dos-steps" aria-label="DoS 计算进度">
+            <li id="dos-step-inspect"><strong>01 · 导入矩阵</strong><span>核对体系与映射</span></li>
+            <li id="dos-step-package"><strong>02 · GPU 计算包</strong><span>交给超算执行</span></li>
+            <li id="dos-step-return"><strong>03 · 核验回传</strong><span>检查完整性与数值</span></li>
+            <li id="dos-step-plot"><strong>04 · Figure 3a–d</strong><span>预览与导出</span></li>
+          </ol>
+          <div class="dos-layout">
+            <div>
+              <article class="card">
+                <div class="card-title"><div><h4><span class="dos-number">01</span>Gaussian 数据</h4><p>读取实际 AO 数、原子顺序和 nucleotide / bp 映射。</p></div><span id="dos-inspect-tag" class="tag">待导入</span></div>
+                <div class="field"><label for="dos-source">Gaussian 矩阵目录</label><div class="input-row"><input id="dos-source" class="mono-input" placeholder="选择 gaussian_input 目录" autocomplete="off"><button type="button" class="button quiet" data-submit data-browse="directory" data-target="dos-source">选择目录</button></div><p class="field-help">包含 .mat、.gjf、atom_mapping.csv 和对应 PDB。可直接接入已有结果。</p></div>
+                <div class="dos-metrics" aria-live="polite"><div><strong id="dos-state-count">—</strong><span>全空间态数</span></div><div><strong id="dos-bp-count">—</strong><span>bp / 位置</span></div><div><strong id="dos-atom-count">—</strong><span>原子数</span></div></div>
+                <p id="dos-contact-info" class="dos-note">检查后显示左右接触原子和骨架边界数。</p>
+                <details class="setup-details"><summary><span>本机 Python</span><span>矩阵提取与绘图</span></summary><div class="details-body"><div class="field"><label for="dos-python">科学计算 Python 路径</label><div class="input-row"><input id="dos-python" class="mono-input" autocomplete="off"><button type="button" class="button quiet" data-submit data-browse="file" data-target="dos-python">选择文件</button></div><p class="field-help">需要 NumPy、SciPy、Matplotlib。本机不需要 CUDA。</p></div></div></details>
+                <div class="action-row"><button type="button" id="dos-inspect" class="button primary" data-submit data-action="dos_inspect"><span class="button-label">检查矩阵</span></button></div>
+                <p id="dos-inspect-status" class="dos-status" role="status">等待选择数据。</p>
+              </article>
+              <article class="card">
+                <div class="card-title"><div><h4><span class="dos-number">02</span>生成 GPU 计算包</h4><p>包内自带脚本和执行指南；重预处理在超算用 float64 完成。</p></div><span class="tag">complex64</span></div>
+                <div class="field"><label for="dos-package">新计算包目录</label><div class="input-row"><input id="dos-package" class="mono-input" placeholder="检查矩阵后自动建议保存位置" autocomplete="off"><button type="button" class="button quiet" data-submit data-browse="directory" data-target="dos-package">选择位置</button></div></div>
+                <details class="setup-details"><summary><span>V2 计算参数</span><span>解析 KK · 全空间</span></summary><div class="details-body"><div class="field-grid">
+                  <div class="field"><label for="dos-energy-min">能量下限 / eV</label><input id="dos-energy-min" data-dos-param="energy_min_eV" type="number" step="0.001" value="-6"></div>
+                  <div class="field"><label for="dos-energy-max">能量上限 / eV</label><input id="dos-energy-max" data-dos-param="energy_max_eV" type="number" step="0.001" value="0"></div>
+                  <div class="field"><label for="dos-energy-step">能量步长 / eV</label><input id="dos-energy-step" data-dos-param="energy_step_eV" type="number" min="0.000001" step="any" value="0.005"></div>
+                  <div class="field"><label for="dos-eta">数值半宽 η / eV</label><input id="dos-eta" data-dos-param="eta_eV" type="number" min="0.000001" step="any" value="0.012"></div>
+                  <div class="field"><label for="dos-bin">定量分箱 / eV</label><input id="dos-bin" data-dos-param="dos_bin_width_eV" type="number" min="0.000001" step="any" value="0.024"></div>
+                  <div class="field"><label for="dos-gamma-contact">ΓL = ΓR / eV</label><input id="dos-gamma-contact" data-dos-param="gamma_contact_eV" type="number" min="0" step="0.01" value="0.6"></div>
+                  <div class="field"><label for="dos-gamma-b">ΓB / eV</label><input id="dos-gamma-b" data-dos-param="gamma_b_eV" type="number" min="0" step="0.001" value="0.01"></div>
+                  <div class="field"><label for="dos-lambda">λ / eV</label><input id="dos-lambda" data-dos-param="lambda_eV" type="number" min="0.000001" step="any" value="0.05"></div>
+                  <div class="field"><label for="dos-spurious-min">伪态候选能窗下限 / eV</label><input id="dos-spurious-min" data-dos-param="spurious_min_eV" type="number" step="0.01" value="-6.05"></div>
+                  <div class="field"><label for="dos-spurious-max">伪态候选能窗上限 / eV</label><input id="dos-spurious-max" data-dos-param="spurious_max_eV" type="number" step="0.01" value="-5.65"></div>
+                </div><p class="field-help">沿用 GGCC V2 的 terminal-O 接触假设；伪态按本体系重新识别。只关闭相应 probe，保留全部 Hamiltonian 态。</p></div></details>
+                <div class="action-row"><button type="button" id="dos-export" class="button primary" data-submit data-action="dos_export"><span class="button-label">生成 GPU 包</span></button><button type="button" id="dos-open-package" class="button" data-submit data-action="dos_open" data-dos-open="package">打开计算包</button></div>
+                <p id="dos-package-status" class="dos-status" role="status">先检查输入矩阵。</p>
+              </article>
+              <article class="card">
+                <div class="card-title"><div><h4><span class="dos-number">03</span>核验超算回传</h4><p>核对计算包、能量网格、bp 求和和分箱积分。</p></div><span id="dos-return-tag" class="tag">等待回传</span></div>
+                <div class="field"><label for="dos-results">回传结果目录</label><div class="input-row"><input id="dos-results" class="mono-input" placeholder="选择返回本机的 results_c64" autocomplete="off"><button type="button" class="button quiet" data-submit data-browse="directory" data-target="dos-results">选择目录</button></div><p class="field-help">复制完整 results_c64，保留元数据和结构。尚未合并时，本机会合并 points；缺点时给出补算索引。</p></div>
+                <div class="action-row"><button type="button" id="dos-verify" class="button primary" data-submit data-action="dos_verify"><span class="button-label">核验回传</span></button></div>
+                <p id="dos-verify-status" class="dos-status" role="status">导出包后即可等待超算回传，无需在本机运行计算。</p>
+              </article>
+              <article class="card">
+                <div class="card-title"><div><h4><span class="dos-number">04</span>Figure 3a–d</h4><p>gateway 可由接触谱建议，也可手动指定。</p></div></div>
+                <div class="field-grid"><div class="field"><label for="dos-gateway">Gateway / eV</label><input id="dos-gateway" type="number" step="0.001" placeholder="留空：从接触谱建议"></div><div class="field"><label for="dos-temperature">分析温度 / K</label><input id="dos-temperature" type="number" min="1" step="1" value="300"></div></div>
+                <details class="setup-details"><summary><span>绘图设置</span><span>只影响本机后处理</span></summary><div class="details-body"><div class="field-grid"><div class="field"><label for="dos-gateway-min">Gateway 搜索下限 / eV</label><input id="dos-gateway-min" type="number" step="0.01" placeholder="自动使用可积分能区"></div><div class="field"><label for="dos-gateway-max">Gateway 搜索上限 / eV</label><input id="dos-gateway-max" type="number" step="0.01" placeholder="自动使用可积分能区"></div><div class="field"><label for="dos-display-sigma">a/b 显示平滑 σ / eV</label><input id="dos-display-sigma" type="number" min="0" step="0.001" value="0.005"></div></div><p class="field-help">c/d 使用未显示平滑的分箱结果。d 图按 bp 统一着色，下方标出位置与碱基。</p></div></details>
+                <div class="field" style="margin-top:18px"><label for="dos-plot-output">新图件目录</label><div class="input-row"><input id="dos-plot-output" class="mono-input" autocomplete="off"><button type="button" class="button quiet" data-submit data-browse="directory" data-target="dos-plot-output">选择位置</button></div><p class="field-help">输出 PNG、SVG、PDF、TIFF、各面板 CSV 和绘图参数；每次保留独立图件。</p></div>
+                <div class="action-row"><button type="button" id="dos-plot" class="button primary" data-submit data-action="dos_plot"><span class="button-label">生成 Figure 3a–d</span></button><button type="button" id="dos-open-figure" class="button" data-submit data-action="dos_open" data-dos-open="figure">打开图件目录</button></div>
+                <p id="dos-plot-status" class="dos-status" role="status">核验回传后即可绘图。</p>
+                <figure id="dos-preview" class="dos-preview" hidden><img id="dos-preview-image" alt="当前 DNA 计算结果的 Figure 3a–d"><figcaption id="dos-preview-caption"></figcaption></figure>
+              </article>
+              <details><summary>其他任务产物</summary><div class="details-body"><button class="button" type="button" id="open-folder" data-submit data-action="open_folder">打开任务目录</button><ul class="path-list" id="artifact-list"><li>尚无服务端产物路径。</li></ul></div></details>
+            </div>
+            <aside class="dos-sidebar">
+              <article class="card"><h4>本机 → 超算 → 本机</h4><p>本机：核对、提取和打包。</p><p>超算：float64 数学预处理，再用 CUDA complex64 求解。</p><p>本机：核验结果并出图。</p><p id="dos-memory-note">检查矩阵后显示方阵大小和显存估算。</p></article>
+              <article class="card"><h4>超算执行顺序</h4><p>进入包目录，按 GPU_GUIDE.md 配置环境后执行。命令不会从本页自动提交。</p>
+                <div class="dos-command"><code>bash prepare.sh</code><button type="button" class="button quiet" data-copy-command="bash prepare.sh">复制预处理命令</button></div>
+                <div class="dos-command"><code>bash run_gpu.sh --indices 0</code><button type="button" class="button quiet" data-copy-command="bash run_gpu.sh --indices 0">复制单点测试命令</button></div>
+                <div class="dos-command"><code>bash run_gpu.sh --resume</code><button type="button" class="button quiet" data-copy-command="bash run_gpu.sh --resume">复制完整计算命令</button></div>
+                <div class="dos-command"><code>bash merge.sh</code><button type="button" class="button quiet" data-copy-command="bash merge.sh">复制合并命令</button></div>
+              </article>
+            </aside>
+          </div>
+        </section>
+        <div class="layout-two log-region">
+          <details class="log-drawer" id="log-drawer">
+            <summary><span class="log-title">任务日志</span></summary>
+            <pre id="task-log">等待服务端状态。</pre>
+          </details>
+        </div>
+      </main>
+    </div>
+  </div>
+  <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="true"></div>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const DIRECT_STAGES = [
+        ['topology', '拓扑', null],
+        ['solvate', '溶剂化', 'topology']
+      ];
+      const MD_STAGES = [
+        { key: 'em', label: 'EM', predecessor: 'solvate' },
+        { key: 'nvt', label: 'NVT', predecessor: 'em' },
+        { key: 'npt', label: 'NPT', predecessor: 'nvt' },
+        { key: 'md', label: 'MD', predecessor: 'npt' }
+      ];
+      const TITLES = { sequence: '序列与任务', md: 'WSL MD 准备', vmd: 'VMD / 构型', gaussian: 'Gaussian', results: 'DoS 与结果' };
+      const API = {
+        state: '/api/state', environment: '/api/environment', jobCreate: '/api/job/create', jobOpen: '/api/job/open', action: '/api/action', browse: '/api/browse'
+      };
+      const NEW_DIRECTORY_TARGETS = {
+        'gaussian-output': ['Gaussian 输出目录', 'gaussian_input'],
+        'cluster-output': ['聚类输出目录', 'clusters'],
+        'relax-output': ['EM 子任务目录', 'em_relax'],
+        'dos-package': ['GPU 计算包目录', 'dna_dos_v2'],
+        'dos-plot-output': ['图件目录', 'figure3_v2']
+      };
+      const DOS_ACTION_LABELS = { dos_inspect: '检查矩阵', dos_export: '生成 GPU 包', dos_verify: '核验回传', dos_plot: '生成 Figure 3', dos_open: '打开目录' };
+      const app = { state: {}, busy: false, initialized: false, logLines: [] };
+      const $ = (selector, parent = document) => parent.querySelector(selector);
+      const $$ = (selector, parent = document) => [...parent.querySelectorAll(selector)];
+
+      function appendLog(message) {
+        if (!message) return;
+        app.logLines.push(String(message));
+        app.logLines = app.logLines.slice(-80);
+        renderLog();
+      }
+
+      function taskLogLines(task) {
+        if (!task) return [];
+        const parts = [];
+        if (Array.isArray(task.log)) parts.push(...task.log.map(String));
+        else if (task.log) parts.push(String(task.log));
+        if (task.error) parts.push(`错误: ${task.error}`);
+        return parts;
+      }
+
+      function renderLog() {
+        const serverLines = taskLogLines(app.state.task);
+        const allLines = [...serverLines, ...app.logLines];
+        $('#task-log').textContent = allLines.length ? allLines.join('\n') : '等待服务端状态。';
+      }
+
+      function toast(message, tone = 'success') {
+        const el = document.createElement('div');
+        el.className = 'toast';
+        el.dataset.tone = tone;
+        el.textContent = message;
+        $('#toast-region').append(el);
+        window.setTimeout(() => {
+          el.classList.add('is-leaving');
+          window.setTimeout(() => el.remove(), 190);
+        }, 3600);
+      }
+
+      async function api(url, options = {}) {
+        const response = await fetch(url, {
+          headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+          ...options
+        });
+        let payload = {};
+        try { payload = await response.json(); } catch { /* backend error may be non-JSON */ }
+        if (!response.ok || payload.error) throw new Error(payload.error || `请求失败（HTTP ${response.status}）`);
+        return payload;
+      }
+
+      function stageValue(key) {
+        const stages = app.state.job && app.state.job.stages;
+        const value = stages && stages[key];
+        return typeof value === 'string' ? value.toLowerCase() : (value && value.status ? String(value.status).toLowerCase() : 'pending');
+      }
+
+      function isComplete(key) {
+        return ['complete', 'ready'].includes(stageValue(key));
+      }
+
+      function canRunDirectStage(key, previous) {
+        if (!app.state.job || app.busy || app.state.task?.status === 'running' || isComplete(key)) return false;
+        return !previous || isComplete(previous);
+      }
+
+      function stateLabel(value) {
+        return ({ complete: '完成', ready: '就绪', blocked: '待处理', running: '进行中', succeeded: '完成', failed: '失败', error: '错误', pending: '待执行', not_checked: '尚未检测', unavailable: '不可用', unverified: '尚未验证', prepared: 'TPR 已准备', returned: '待核验', verified: '已验证' })[value] || value || '待执行';
+      }
+
+      function setText(id, value, fallback = '未返回') {
+        const el = $(`#${id}`);
+        if (el) el.textContent = value || fallback;
+      }
+
+      function setInputIfPristine(id, value) {
+        const input = $(`#${id}`);
+        if (!input || input.dataset.dirty === 'true' || value === undefined || value === null || value === '') return;
+        input.value = String(value);
+      }
+
+      function setInputValue(id, value) {
+        const input = $(`#${id}`);
+        if (!input || value === undefined || value === null || value === '') return;
+        input.value = String(value);
+        input.dataset.dirty = 'true';
+      }
+
+      function hydratePristineValues() {
+        const environment = app.state.environment || {};
+        const config = (app.state.job && app.state.job.config) || {};
+        const defaults = app.state.defaults || {};
+        const values = { ...defaults, ...config };
+        setInputIfPristine('distribution', environment.distribution || environment.distro || defaults.distribution);
+        setInputIfPristine('gmx-path', environment.gmx || environment.gmx_path || defaults.gmx);
+        setInputIfPristine('sequence-a', values.sequence);
+        setInputIfPristine('sequence-b', values.partner);
+        const savedOutput = values.output || (app.state.job && app.state.job.path);
+        if (savedOutput) {
+          const parts = splitPath(savedOutput);
+          setInputIfPristine('output-parent', parts.parent);
+          setInputIfPristine('task-name', parts.name);
+        }
+        setInputIfPristine('forcefield', resolveForcefieldPath(values.forcefield));
+        ['temperature', 'salt', 'nvt_ps', 'npt_ps', 'md_ns', 'xtc_ps', 'padding', 'seed', 'ntomp', 'box_type'].forEach(key => setInputIfPristine(key.replace('_', '-'), values[key] ?? environment[key]));
+        updateMode();
+      }
+
+      function renderStages() {
+        const list = $('#stage-list');
+        list.replaceChildren();
+        if (!app.state.job) {
+          const empty = document.createElement('div');
+          empty.className = 'empty-state';
+          empty.textContent = '请先创建或打开任务；前置状态将由服务端返回。';
+          list.append(empty);
+          return;
+        }
+        for (const [key, label, previous] of DIRECT_STAGES) {
+          const row = document.createElement('div');
+          row.className = 'stage-row';
+          const name = document.createElement('div');
+          const title = document.createElement('div');
+          title.className = 'stage-name';
+          title.textContent = label;
+          const detail = document.createElement('div');
+          detail.className = 'stage-detail';
+          detail.textContent = previous ? `前置：${DIRECT_STAGES.find(stage => stage[0] === previous)[1]}` : '第一个 MD 准备步骤';
+          name.append(title, detail);
+          const status = stageValue(key);
+          const tag = document.createElement('span');
+          tag.className = 'tag';
+          tag.dataset.state = status;
+          tag.textContent = stateLabel(status);
+          const button = document.createElement('button');
+          button.className = 'button stage-action';
+          button.type = 'button';
+          button.dataset.submit = 'true';
+          button.dataset.action = key;
+          button.disabled = !canRunDirectStage(key, previous);
+          button.textContent = isComplete(key) ? '已完成' : (previous && !isComplete(previous) ? '等待前置' : '执行此步');
+          row.append(name, tag, button);
+          list.append(row);
+        }
+        for (const meta of MD_STAGES) list.append(renderMdStage(meta));
+      }
+
+      function stageFiles(value) {
+        return Array.isArray(value) ? value.filter(Boolean).map(String) : [];
+      }
+
+      function defaultReturnFiles(key) {
+        const base = [`${key}.gro`, `${key}.log`, `${key}.tpr`];
+        return key === 'em' ? base : [`${key}.gro`, `${key}.cpt`, `${key}.log`, `${key}.tpr`];
+      }
+
+      function mdStageInfo(meta) {
+        const source = app.state.job && app.state.job.md_stages && app.state.job.md_stages[meta.key];
+        if (source && typeof source === 'object') return source;
+        return {
+          status: 'blocked',
+          can_prepare: false,
+          can_verify: false,
+          missing_inputs: ['等待服务端返回该阶段状态'],
+          missing_returns: [],
+          return_files: defaultReturnFiles(meta.key),
+          command: '',
+          tpr: '',
+          predecessor: meta.predecessor,
+          reason: ''
+        };
+      }
+
+      function makeStageText(label, values, emptyText) {
+        const block = document.createElement('div');
+        block.className = 'md-stage-meta';
+        const heading = document.createElement('span');
+        heading.className = 'md-stage-meta-label';
+        heading.textContent = label;
+        const text = document.createElement('span');
+        text.textContent = values.length ? values.join('、') : emptyText;
+        block.append(heading, text);
+        return block;
+      }
+
+      function renderMdStage(meta) {
+        const stage = mdStageInfo(meta);
+        const status = String(stage.status || 'blocked').toLowerCase();
+        const busy = app.busy || app.state.task?.status === 'running';
+        const row = document.createElement('section');
+        row.className = 'md-stage';
+        row.dataset.status = status;
+
+        const header = document.createElement('div');
+        header.className = 'md-stage-header';
+        const titleBlock = document.createElement('div');
+        const title = document.createElement('div');
+        title.className = 'stage-name';
+        title.textContent = meta.label;
+        const description = document.createElement('div');
+        description.className = 'stage-detail';
+        description.textContent = status === 'prepared' ? 'TPR 已生成，等待超算结果回传。' : status === 'returned' ? '回传文件已找到，等待本地核验。' : status === 'verified' ? '回传结果已核验，可用于下一阶段。' : (stage.reason || `前置：${stage.predecessor || meta.predecessor}`);
+        titleBlock.append(title, description);
+        const tag = document.createElement('span');
+        tag.className = 'tag';
+        tag.dataset.state = status;
+        tag.textContent = stateLabel(status);
+        header.append(titleBlock, tag);
+
+        const info = document.createElement('div');
+        info.className = 'md-stage-info';
+        const tpr = document.createElement('div');
+        tpr.className = 'md-stage-tpr';
+        tpr.textContent = stage.tpr ? `TPR：${stage.tpr}` : 'TPR：尚未生成';
+        info.append(tpr);
+        const missingInputs = stageFiles(stage.missing_inputs);
+        const missingReturns = stageFiles(stage.missing_returns);
+        const returnFiles = stageFiles(stage.return_files);
+        info.append(makeStageText('生成前需要', missingInputs, '前置条件由服务端确认'));
+        info.append(makeStageText('需回传', returnFiles.length ? returnFiles : defaultReturnFiles(meta.key), '后端未返回文件清单'));
+        if (missingReturns.length) info.append(makeStageText('当前缺少', missingReturns, ''));
+        const jobPath = app.state.job && app.state.job.path;
+        if (jobPath) info.append(makeStageText('复制回目录', [jobPath], ''));
+
+        const command = document.createElement('div');
+        command.className = 'md-stage-command';
+        const commandText = document.createElement('code');
+        commandText.textContent = stage.command || 'TPR 就绪后由服务端提供超算命令。';
+        const copy = document.createElement('button');
+        copy.type = 'button';
+        copy.className = 'button quiet';
+        copy.dataset.submit = 'true';
+        copy.dataset.copyCommand = stage.command || '';
+        copy.disabled = !stage.command || busy;
+        copy.textContent = '复制超算命令';
+        command.append(commandText, copy);
+
+        const actions = document.createElement('div');
+        actions.className = 'md-stage-actions';
+        const prepare = document.createElement('button');
+        prepare.type = 'button';
+        prepare.className = 'button';
+        prepare.dataset.submit = 'true';
+        prepare.dataset.action = `prepare_${meta.key}`;
+        prepare.textContent = `生成 ${meta.label} TPR`;
+        prepare.disabled = busy || !stage.can_prepare;
+        if (prepare.disabled) prepare.title = stage.reason || (missingInputs.length ? `缺少：${missingInputs.join('、')}` : '当前不能生成 TPR');
+        const verify = document.createElement('button');
+        verify.type = 'button';
+        verify.className = 'button quiet';
+        verify.dataset.submit = 'true';
+        verify.dataset.action = `verify_${meta.key}`;
+        verify.textContent = status === 'verified' ? `重新核验 ${meta.label} 回传` : `核验 ${meta.label} 回传`;
+        verify.disabled = busy || !stage.can_verify;
+        if (verify.disabled) verify.title = missingReturns.length ? `缺少：${missingReturns.join('、')}` : (stage.reason || '请先将超算结果复制回任务目录');
+        actions.append(prepare, verify);
+
+        row.append(header, info, command, actions);
+        return row;
+      }
+
+      function flattenArtifacts(value, prefix = '') {
+        if (value === null || value === undefined || value === '') return [];
+        if (typeof value === 'string' || typeof value === 'number') return [prefix ? `${prefix}: ${value}` : String(value)];
+        if (Array.isArray(value)) return value.flatMap((item, index) => flattenArtifacts(item, prefix ? `${prefix}[${index}]` : `[${index}]`));
+        if (typeof value === 'object') return Object.entries(value).flatMap(([key, item]) => flattenArtifacts(item, prefix ? `${prefix}.${key}` : key));
+        return [];
+      }
+
+      function renderArtifacts() {
+        const list = $('#artifact-list');
+        const artifacts = app.state.job && app.state.job.artifacts;
+        const paths = flattenArtifacts(artifacts);
+        list.replaceChildren();
+        for (const path of (paths.length ? paths : ['尚无服务端产物路径。'])) {
+          const item = document.createElement('li');
+          item.textContent = path;
+          list.append(item);
+        }
+      }
+
+      function sameLocalPath(a, b) {
+        const normalize = value => String(value || '').replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+        return Boolean(a && b && normalize(a) === normalize(b));
+      }
+
+      function newFigurePath(results) {
+        const stamp = new Date().toISOString().slice(0, 19).replace(/[-:T]/g, '');
+        return joinPath(joinPath(results, 'figures'), `figure3_${stamp}`);
+      }
+
+      function renderDos() {
+        const job = app.state.job;
+        const state = job?.dos || {};
+        if (app.dosJob !== job?.path) {
+          app.dosJob = job?.path;
+          $$('#panel-results input').forEach(input => { input.value = input.defaultValue; delete input.dataset.dirty; });
+          app.appliedDosTask = null;
+        }
+        const task = app.state.task;
+        if (task?.status === 'succeeded' && task.result?.dos && app.appliedDosTask !== task.id) {
+          app.appliedDosTask = task.id;
+          if (task.action === 'dos_inspect' && !state.package) {
+            for (const id of ['dos-package', 'dos-results', 'dos-plot-output']) { $(`#${id}`).value = ''; delete $(`#${id}`).dataset.dirty; }
+          }
+          if (task.action === 'dos_export') {
+            setInputValue('dos-package', state.package);
+            setInputValue('dos-results', joinPath(state.package, 'results_c64'));
+            setInputValue('dos-plot-output', newFigurePath(joinPath(state.package, 'results_c64')));
+          }
+          if (task.action === 'dos_verify' && state.results) setInputValue('dos-plot-output', newFigurePath(state.results));
+          if (task.action === 'dos_plot' && state.results) setInputValue('dos-plot-output', newFigurePath(state.results));
+        }
+        setInputIfPristine('dos-source', state.source || (job?.path ? joinPath(job.path, 'gaussian_input') : ''));
+        setInputIfPristine('dos-python', state.dos_python || app.state.defaults?.dos_python);
+        setInputIfPristine('dos-temperature', state.parameters?.temperature_K ?? job?.config?.temperature_K ?? 300);
+        $$('[data-dos-param]').forEach(input => setInputIfPristine(input.id, state.parameters?.[input.dataset.dosParam]));
+        const inspected = sameLocalPath($('#dos-source').value.trim(), state.inspection?.source) ? state.inspection : null;
+        const suggested = inspected && job?.path ? joinPath(joinPath(job.path, 'dos_v2'), `${splitPath(job.path).name}_dos_v2_${inspected.state_count}`) : '';
+        setInputIfPristine('dos-package', state.package || suggested);
+        setInputIfPristine('dos-results', state.results || (state.package ? joinPath(state.package, 'results_c64') : ''));
+        if (!$('#dos-plot-output').value && $('#dos-results').value) setInputIfPristine('dos-plot-output', newFigurePath($('#dos-results').value));
+        setText('dos-state-count', inspected?.state_count?.toLocaleString(), '—');
+        setText('dos-bp-count', inspected?.base_pair_count, '—');
+        setText('dos-atom-count', inspected?.atom_count?.toLocaleString(), '—');
+        const inspectTag = $('#dos-inspect-tag');
+        inspectTag.textContent = inspected ? '映射通过' : '待导入';
+        inspectTag.dataset.state = inspected ? 'ready' : 'pending';
+        setText('dos-contact-info', inspected ? `${inspected.contacts.map(contact => `${contact.side === 'left' ? '左' : '右'}：${contact.chain}${contact.position} ${contact.base} · ${contact.atom_name}（原子 ${contact.anchor_atom_1based}）`).join('；')}。${inspected.expected_boundary_candidates} 条 O–P 边界待按本体系识别候选。` : '', '检查后显示左右接触原子和骨架边界数。');
+        setText('dos-inspect-status', inspected ? `${inspected.nucleotide_count} 个 nucleotide；全部 AO 恰好归属一次。矩阵 / 坐标最大差异 ${inspected.geometry_mat_max_abs_A.toExponential(2)} Å。` : '', job ? '选择矩阵目录后点击检查。' : '请先打开 DNA 任务。');
+        setText('dos-memory-note', inspected ? `单张 float64 方阵约 ${inspected.float64_square_GiB.toFixed(2)} GiB。complex64 的 H、A、LU 合计约 ${inspected.c64_H_A_LU_GiB_excluding_workspace.toFixed(2)} GiB；CUDA 工作空间另计，先测一个能量点。` : '', '检查矩阵后显示方阵大小和显存估算。');
+        const packaged = state.package_phase === 'exported';
+        setText('dos-package-status', packaged ? `计算包已生成，等待超算回传。${state.package}` : '', inspected ? '准备提取必要矩阵；本机不执行大矩阵分解。' : '先检查输入矩阵。');
+        const returned = state.verification?.complete && sameLocalPath($('#dos-results').value, state.results);
+        $('#dos-return-tag').textContent = returned ? '已核验' : '等待回传';
+        $('#dos-return-tag').dataset.state = returned ? 'ready' : 'pending';
+        setText('dos-verify-status', returned ? `${state.verification.energy_count} 个能量点，${state.verification.base_pair_count} 个位置，${state.verification.dtype}；分箱积分守恒。` : '', '导出包后即可等待超算回传，无需在本机运行计算。');
+        for (const [id, done] of [['inspect', !!inspected], ['package', packaged], ['return', !!returned], ['plot', !!state.figure]]) $('#dos-step-' + id).dataset.done = String(done);
+        const figure = state.figure;
+        $('#dos-preview').hidden = !figure;
+        if (figure) {
+          const src = '/api/dos/preview?v=' + encodeURIComponent(figure.output);
+          if ($('#dos-preview-image').getAttribute('src') !== src) $('#dos-preview-image').src = src;
+          setText('dos-preview-caption', `上次生成：gateway ${figure.gateway.energy_eV.toFixed(4)} eV · ${figure.temperature_K} K · ${figure.base_pair_count} 个位置。`);
+          setText('dos-plot-status', figure.output);
+        } else setText('dos-plot-status', '', '核验回传后即可绘图。');
+        if (task?.status === 'failed' && task.action in DOS_ACTION_LABELS) {
+          const id = { dos_inspect: 'dos-inspect-status', dos_export: 'dos-package-status', dos_verify: 'dos-verify-status', dos_plot: 'dos-plot-status' }[task.action];
+          if (id) setText(id, '失败原因见下方任务日志：' + (task.error || '请查看详细输出。'));
+        }
+      }
+
+      function updateDosControls() {
+        const state = app.state.job?.dos || {};
+        const busy = app.busy || app.state.task?.status === 'running';
+        const inspected = sameLocalPath($('#dos-source').value, state.inspection?.source);
+        const verified = state.verification?.complete && sameLocalPath($('#dos-results').value, state.results)
+          && !(app.state.task?.action === 'dos_verify' && app.state.task?.status === 'failed');
+        $('#dos-inspect').disabled = busy || !app.state.job || !$('#dos-source').value.trim();
+        $('#dos-export').disabled = busy || !inspected || !$('#dos-package').value.trim() || sameLocalPath($('#dos-package').value, state.package);
+        $('#dos-open-package').disabled = busy || !state.package;
+        $('#dos-verify').disabled = busy || !app.state.job || !$('#dos-results').value.trim();
+        $('#dos-plot').disabled = busy || !verified || !$('#dos-plot-output').value.trim();
+        $('#dos-open-figure').disabled = busy || !state.figure;
+      }
+
+      function taskResult(action) {
+        const task = app.state.task;
+        return task && task.action === action && task.result && typeof task.result === 'object' ? task.result : null;
+      }
+
+      function taskOutput(action) {
+        const result = taskResult(action);
+        return result && result.output ? String(result.output) : '';
+      }
+
+      function applyTaskResult(task = app.state.task) {
+        const result = task && task.result && typeof task.result === 'object' ? task.result : null;
+        if (!result) return;
+        if (task.action === 'cluster' && result.output) setInputValue('relax-frame', joinPath(String(result.output), 'dominant.pdb'));
+        if (task.action === 'prepare_relax' && result.output) setInputValue('relax-child-job', result.output);
+        if (task.action === 'verify_relax') {
+          setInputValue('gaussian-pdb', result.frame);
+          setInputValue('gaussian-job', result.gaussian_job);
+        }
+      }
+
+      function renderActionResults() {
+        const cluster = taskOutput('cluster');
+        setText('cluster-result', cluster ? `服务端输出：${cluster}；代表构型已回填为 ${joinPath(cluster, 'dominant.pdb')}。` : '', '完成后，代表构型将作为 output/dominant.pdb 回填到显式溶剂 EM。');
+        setText('vmd-tk-result', taskOutput('open_tk') ? `原生 Tk 控制台脚本：${taskOutput('open_tk')}` : '', '由后端生成并启动原生 vmd_open_tk.tcl。');
+        setText('relax-prepare-result', taskOutput('prepare_relax') ? `已创建子任务：${taskOutput('prepare_relax')}；仅生成 em.tpr，等待超算运行。` : '', '提交后生成 em.tpr；计算资源仍为超算。');
+        const verified = taskResult('verify_relax');
+        setText('relax-verify-result', verified?.frame ? `已导出：${verified.frame}` : '', '等待超算完成 EM 并回传。');
+        applyTaskResult();
+      }
+
+
+      function artifactStrings() {
+        return flattenArtifacts(app.state.job && app.state.job.artifacts);
+      }
+
+      function findArtifact(pattern) {
+        return artifactStrings().find(path => pattern.test(path)) || '';
+      }
+
+      function hasVmdInputs() {
+        return Boolean(findArtifact(/dna\.pdb/i) && findArtifact(/dna_whole\.xtc/i));
+      }
+
+      function renderEnvironment() {
+        const environment = app.state.environment || {};
+        const list = $('#environment-summary');
+        const status = environment.status || (environment.ready === true ? '可用' : '未连接服务端');
+        const pairs = [
+          ['发行版', environment.distribution || environment.distro || $('#distribution').value || '未返回'],
+          ['gmx', environment.gmx || environment.gmx_path || $('#gmx-path').value || '未返回'],
+          ['状态', stateLabel(status)]
+        ];
+        list.replaceChildren();
+        for (const [term, description] of pairs) {
+          const dt = document.createElement('dt');
+          const dd = document.createElement('dd');
+          dt.textContent = term;
+          dd.textContent = description;
+          list.append(dt, dd);
+        }
+      }
+
+      function renderTask() {
+        const task = app.state.task;
+        const status = task && task.status ? String(task.status).toLowerCase() : 'idle';
+        $('#task-dot').dataset.status = status;
+        $('#task-status-text').textContent = task ? `${DOS_ACTION_LABELS[task.action] || task.action || '任务'} · ${stateLabel(status)}` : '待命';
+      }
+
+      function renderJobPath() {
+        const path = app.state.job && app.state.job.path;
+        for (const id of ['job-path', 'md-job-path', 'vmd-job-path', 'gaussian-job-path', 'results-job-path']) {
+          const el = $(`#${id}`);
+          el.textContent = path || '尚未打开任务';
+          el.title = path || '尚未打开任务';
+        }
+        setText('handoff-status', app.state.job ? stateLabel(stageValue('handoff')) : '等待服务端任务状态');
+        const config = (app.state.job && app.state.job.config) || {};
+        setText('forcefield-summary', config.forcefield || $('#forcefield').value, 'CHARMM36 .ff 目录待服务端确认');
+        $('#summary-name').textContent = path ? splitPath(path).name : ($('#task-name').value.trim() || '新任务');
+      }
+
+      function updateControls() {
+        const hasJob = Boolean(app.state.job);
+        const trajectory = app.state.job?.trajectory;
+        $('#handoff').disabled = !hasJob || app.busy || !trajectory?.can_process;
+        $('#trajectory-status').textContent = !hasJob ? '请先打开任务。' : trajectory?.complete ? '处理完成：DNA整体居中，仅含DNA，可进入VMD。' : trajectory?.missing?.length ? `缺少：${trajectory.missing.join('、')}` : trajectory?.existing?.length ? '已有处理产物（旧版可能尚未居中），不会覆盖。请在新的任务副本中处理原始轨迹。' : '输入齐全。将按整个DNA组处理，双链不会被分别折回不同周期像。';
+        $('#open-vmd').disabled = !hasVmdInputs() || app.busy;
+        $('#gaussian-action').disabled = !hasJob || app.busy;
+        $('#open-folder').disabled = !hasJob || app.busy;
+        $('#create-job').disabled = app.busy || $('#preset').value === 'o6meg';
+        $$('[data-submit]').forEach(button => {
+          if (button.id === 'create-job' || button.id === 'handoff' || button.id === 'open-vmd' || button.id === 'gaussian-action' || button.id === 'open-folder') return;
+          button.disabled = app.busy;
+        });
+        if (app.state.task?.status === 'running') $$('[data-submit]').forEach(button => { button.disabled = true; });
+        renderStages();
+        setText('vmd-input-status', hasVmdInputs() ? '已检测 dna.pdb + dna_whole.xtc；可直接打开' : '需服务端回传 dna.pdb + dna_whole.xtc');
+        updateDosControls();
+      }
+
+      function renderState() {
+        renderTask();
+        renderJobPath();
+        renderEnvironment();
+        renderArtifacts();
+        hydratePristineValues();
+        renderActionResults();
+        renderDos();
+        renderLog();
+        updateControls();
+      }
+
+      async function loadState(silent = false) {
+        if (app.busy && silent) return;
+        try {
+          app.state = await api(API.state);
+          renderState();
+          if (!app.initialized) {
+            app.initialized = true;
+            appendLog('已读取 /api/state。');
+          }
+        } catch (error) {
+          $('#task-dot').dataset.status = 'error';
+          $('#task-status-text').textContent = '服务端离线；环境未检测';
+          if (!silent) toast(error.message, 'error');
+          appendLog(`状态读取失败: ${error.message}`);
+        }
+      }
+
+      function setBusy(button, busy) {
+        app.busy = busy;
+        if (button) button.dataset.busy = String(busy);
+        $$('[data-submit]').forEach(control => {
+          if (busy) control.disabled = true;
+        });
+        if (!busy) updateControls();
+      }
+
+      function numberOrUndefined(id) {
+        const value = $(`#${id}`).value.trim();
+        const number = Number(value);
+        return value === '' || !Number.isFinite(number) ? undefined : number;
+      }
+
+      function splitPath(path) {
+        const normalized = String(path).replace(/[\\/]+$/, '');
+        const separator = Math.max(normalized.lastIndexOf('\\'), normalized.lastIndexOf('/'));
+        return separator < 0 ? { parent: '', name: normalized } : { parent: normalized.slice(0, separator), name: normalized.slice(separator + 1) };
+      }
+
+      function joinPath(parent, name) {
+        const separator = parent.includes('\\') ? '\\' : '/';
+        return `${parent.replace(/[\\/]+$/, '')}${separator}${name}`;
+      }
+
+      function resolveForcefieldPath(forcefield) {
+        if (!forcefield || /^(?:[A-Za-z]:[\\/]|\\\\|\/)/.test(forcefield)) return forcefield;
+        const jobPath = app.state.job && app.state.job.path;
+        return jobPath ? joinPath(jobPath, forcefield) : forcefield;
+      }
+
+      function environmentPayload() {
+        const distribution = $('#distribution').value.trim();
+        const gmx = $('#gmx-path').value.trim();
+        return { ...(distribution ? { distribution } : {}), ...(gmx ? { gmx } : {}) };
+      }
+
+      function actionPayload(action) {
+        const payload = { action, ...environmentPayload() };
+        if (action === 'handoff' || action === 'open_vmd') {
+          const frame = numberOrUndefined('vmd-frame');
+          const time_ps = numberOrUndefined('vmd-time');
+          if (frame !== undefined) payload.frame = frame;
+          if (time_ps !== undefined) payload.time_ps = time_ps;
+        }
+        if (action === 'gaussian') {
+          const frame = $('#gaussian-pdb').value.trim();
+          const time_ps = numberOrUndefined('gaussian-time');
+          const nproc = numberOrUndefined('gaussian-nproc');
+          const output = $('#gaussian-output').value.trim();
+          const memory = $('#gaussian-memory').value.trim();
+          const dispersion = $('#dispersion').value;
+          const gaussian_job = $('#gaussian-job').value.trim();
+          if (frame) payload.frame = frame;
+          if (time_ps !== undefined) payload.time_ps = time_ps;
+          if (nproc !== undefined) payload.nproc = nproc;
+          if (output) payload.output = output;
+          if (memory) payload.memory = memory;
+          if (dispersion) payload.dispersion = dispersion;
+          if (gaussian_job) payload.gaussian_job = gaussian_job;
+        }
+        if (action === 'cluster') {
+          payload.algorithm = $('#cluster-algorithm').value;
+          payload.selection = $('#cluster-selection').value.trim();
+          payload.distfunc = $('#cluster-distfunc').value;
+          payload.cutoff = numberOrUndefined('cluster-cutoff');
+          payload.num = numberOrUndefined('cluster-num');
+          payload.first = numberOrUndefined('cluster-first');
+          payload.last = numberOrUndefined('cluster-last');
+          payload.step = numberOrUndefined('cluster-step');
+          payload.output = $('#cluster-output').value.trim();
+        }
+        if (action === 'prepare_relax') {
+          payload.frame = $('#relax-frame').value.trim();
+          payload.output = $('#relax-output').value.trim();
+          payload.padding = numberOrUndefined('relax-padding');
+          payload.salt = numberOrUndefined('relax-salt');
+          payload.box_type = $('#relax-box-type').value;
+        }
+        if (action === 'verify_relax') payload.child_job = $('#relax-child-job').value.trim();
+        if (action in DOS_ACTION_LABELS) {
+          payload.dos_python = $('#dos-python').value.trim();
+          payload.source = $('#dos-source').value.trim();
+          payload.package = $('#dos-package').value.trim();
+          payload.results = $('#dos-results').value.trim();
+          if (action === 'dos_export') {
+            payload.output = payload.package;
+            payload.parameters = Object.fromEntries($$('[data-dos-param]').map(input => [input.dataset.dosParam, Number(input.value)]));
+            payload.parameters.temperature_K = numberOrUndefined('dos-temperature');
+          }
+          if (action === 'dos_plot') {
+            payload.output = $('#dos-plot-output').value.trim();
+            payload.gateway = numberOrUndefined('dos-gateway');
+            payload.gateway_min = numberOrUndefined('dos-gateway-min');
+            payload.gateway_max = numberOrUndefined('dos-gateway-max');
+            payload.temperature = numberOrUndefined('dos-temperature');
+            payload.display_sigma = numberOrUndefined('dos-display-sigma');
+          }
+        }
+        return payload;
+      }
+
+      function validNumber(id, label, minimum, integer = false) {
+        const value = numberOrUndefined(id);
+        if (value === undefined || value < minimum || (integer && !Number.isInteger(value))) {
+          toast(`${label} 必须是${integer ? '整数' : '数值'}，且不小于 ${minimum}。`, 'error');
+          return false;
+        }
+        return true;
+      }
+
+      function requireValue(id, label) {
+        if ($(`#${id}`).value.trim()) return true;
+        toast(`请填写${label}。`, 'error');
+        return false;
+      }
+
+      function validateAction(action) {
+        if (action === 'gaussian') return requireValue('gaussian-pdb', '已确认的 PDB 完整路径');
+        if (action === 'cluster') return requireValue('cluster-selection', 'selection') && requireValue('cluster-output', '新的聚类输出目录') && validNumber('cluster-cutoff', 'cutoff', 0.1) && validNumber('cluster-num', 'num', 1, true) && validNumber('cluster-first', 'first', 0, true) && validNumber('cluster-last', 'last', -1, true) && validNumber('cluster-step', 'step', 1, true);
+        if (action === 'prepare_relax') return requireValue('relax-frame', '代表构型 PDB') && requireValue('relax-output', '新的 EM 子任务目录') && validNumber('relax-padding', 'padding', 0) && validNumber('relax-salt', 'salt', 0);
+        if (action === 'verify_relax') return requireValue('relax-child-job', 'child_job 目录');
+        if (action === 'dos_inspect') return requireValue('dos-source', 'Gaussian 数据目录') && requireValue('dos-python', '科学计算 Python');
+        if (action === 'dos_export') {
+          const invalid = $$('[data-dos-param]').find(input => input.value.trim() === '' || !input.checkValidity());
+          if (invalid) {
+            invalid.closest('details').open = true;
+            invalid.reportValidity();
+            toast(`请检查 ${invalid.labels[0].textContent}。`, 'error');
+            return false;
+          }
+          return requireValue('dos-package', '新 GPU 包目录') && validNumber('dos-temperature', '分析温度', 1);
+        }
+        if (action === 'dos_verify') return requireValue('dos-results', '回传目录');
+        if (action === 'dos_plot') return requireValue('dos-results', '回传目录') && requireValue('dos-plot-output', '新图件目录') && validNumber('dos-temperature', '分析温度', 1) && validNumber('dos-display-sigma', '显示平滑', 0);
+        return true;
+      }
+
+      async function submitAction(action, button) {
+        if (!validateAction(action)) return;
+        setBusy(button, true);
+        try {
+          const payload = actionPayload(action);
+          if (action === 'dos_open') payload.path = button.dataset.dosOpen === 'figure' ? app.state.job?.dos?.figure?.output : app.state.job?.dos?.package;
+          const result = await api(API.action, { method: 'POST', body: JSON.stringify(payload) });
+          app.state = { ...app.state, ...(result && result.job ? { job: result.job } : {}), ...(result && result.task ? { task: result.task } : {}) };
+          applyTaskResult(result && result.task);
+          appendLog(`已提交 action: ${action}`);
+          toast(`${DOS_ACTION_LABELS[action] || action} 已提交。`);
+          renderState();
+          await loadState(true);
+        } catch (error) {
+          appendLog(`${action} 提交失败: ${error.message}`);
+          toast(error.message, 'error');
+        } finally { setBusy(button, false); }
+      }
+
+      function updatePreset() {
+        const blocked = $('#preset').value === 'o6meg';
+        const note = $('#preset-notice');
+        note.hidden = !blocked;
+        if (!blocked) {
+          updateSequenceMetrics();
+          updateControls();
+          return;
+        }
+        note.dataset.tone = blocked ? 'danger' : 'teal';
+        note.replaceChildren();
+        const marker = document.createElement('span');
+        const text = document.createElement('span');
+        marker.textContent = blocked ? '限制' : '注';
+        text.textContent = blocked ? 'O6‑MeG参数尚未验证，暂不能创建修饰组。不会替换为普通G。' : '标准DNA，5′/3′-OH末端。';
+        note.append(marker, text);
+        updateSequenceMetrics();
+        updateControls();
+      }
+
+      function updateSequencePreview() {
+        $('#preview-a').textContent = $('#sequence-a').value.trim() || '—';
+        $('#preview-b').textContent = $('#sequence-b').value.trim() || '—';
+        updateSequenceMetrics();
+      }
+
+      function updateSequenceMetrics() {
+        const mode = $('input[name="mode"]:checked').value;
+        const a = $('#sequence-a').value.toUpperCase().replace(/\s/g, '');
+        const b = $('#sequence-b').value.toUpperCase().replace(/\s/g, '');
+        const active = mode === 'single' ? a : `${a}${b}`;
+        const validA = /^[ACGT]+$/.test(a);
+        const validB = mode === 'single' || /^[ACGT]+$/.test(b);
+        const valid = validA && validB;
+        const markerCount = (active.match(/O6-?MEG|5M(?:E)?C|M5C/gi) || []).length;
+        let length = '—';
+        if (validA && mode === 'single') length = `${a.length} nt`;
+        if (validA && mode === 'duplex') length = `${a.length} bp`;
+        if (validA && mode === 'partner' && validB) length = a.length === b.length ? `${a.length} bp` : `${a.length}/${b.length} nt`;
+        const gc = validA && a.length ? `${(((a.match(/[GC]/g) || []).length / a.length) * 100).toFixed(1)}%` : '—';
+        const modification = $('#preset').value === 'o6meg' ? '未支持' : (markerCount ? `${markerCount} 个` : (valid ? '0 个' : '—'));
+        $('#metric-length').textContent = length;
+        $('#metric-gc').textContent = gc;
+        $('#metric-modification').textContent = modification;
+        $('#summary-mode').textContent = ({ single: '单链', duplex: '双链 · 自动互补', partner: '双链 · 指定 B 链' })[mode];
+      }
+
+      function reverseComplement(sequence) {
+        const pairs = { A: 'T', C: 'G', G: 'C', T: 'A' };
+        return [...sequence.toUpperCase().replace(/\s/g, '')].reverse().map(base => pairs[base] || 'N').join('');
+      }
+
+      function updateMode() {
+        const mode = $('input[name="mode"]:checked').value;
+        const partner = $('#sequence-b');
+        const label = $('#partner-label');
+        const help = $('#partner-help');
+        if (mode === 'duplex') {
+          partner.value = reverseComplement($('#sequence-a').value);
+          partner.disabled = true;
+          partner.readOnly = true;
+          label.textContent = 'B 链（自动反向互补，5′→3′）';
+          help.textContent = '由 A 链实时生成并发送；此模式不能编辑 B 链。';
+        } else if (mode === 'single') {
+          partner.value = '';
+          partner.disabled = true;
+          partner.readOnly = true;
+          label.textContent = 'B 链（单链模式不使用）';
+          help.textContent = '单链任务不会发送 B 链。';
+        } else {
+          partner.disabled = false;
+          partner.readOnly = false;
+          label.textContent = 'B 链（指定 5′→3′）';
+          help.textContent = '此值会原样发送给后端；请人工确认方向与配对关系。';
+        }
+        updateSequencePreview();
+      }
+
+      async function browse(button) {
+        const kind = button.dataset.browse;
+        const target = button.dataset.target || (kind === 'directory' ? 'output-parent' : 'gmx-path');
+        setBusy(button, true);
+        try {
+          const result = await api(API.browse, { method: 'POST', body: JSON.stringify({ kind }) });
+          if (!result.path) return;
+          const newDirectory = NEW_DIRECTORY_TARGETS[target];
+          if (newDirectory) {
+            const [label, defaultName] = newDirectory;
+            const name = window.prompt(`新建${label}名（不能已存在）`, defaultName);
+            if (!name) return;
+            if (/[\\/]/.test(name) || name === '.' || name === '..') throw new Error('请输入目录名，不含路径分隔符');
+            result.path = joinPath(result.path, name);
+          }
+          const input = $(`#${target}`);
+          input.value = result.path;
+          input.dataset.dirty = 'true';
+          if (target.startsWith('dos-')) renderDos();
+          appendLog(`已选择 ${kind}: ${result.path}`);
+        } catch (error) {
+          appendLog(`路径选择失败: ${error.message}`);
+          toast(error.message, 'error');
+        } finally { setBusy(button, false); }
+      }
+
+      async function createJob(event) {
+        event.preventDefault();
+        if ($('#preset').value === 'o6meg') { updatePreset(); return; }
+        const button = $('#create-job');
+        const sequence = $('#sequence-a').value.trim();
+        const partner = $('#sequence-b').value.trim();
+        const outputParent = $('#output-parent').value.trim();
+        const taskName = $('#task-name').value.trim();
+        const forcefield = $('#forcefield').value.trim();
+        if (!sequence || !outputParent || !taskName || !forcefield) { toast('请填写 A 链、CHARMM36 力场目录、任务父目录和新任务名。', 'error'); return; }
+        if (/[\\/]/.test(taskName)) { toast('新任务名不能包含路径分隔符。', 'error'); return; }
+        const output = joinPath(outputParent, taskName);
+        const mode = $('input[name="mode"]:checked').value;
+        if ((mode === 'duplex' || mode === 'partner') && !partner) { toast('双链或配对链模式需要 B 链。', 'error'); return; }
+        const payload = {
+          sequence, mode, partner, output,
+          forcefield,
+          temperature: numberOrUndefined('temperature'), salt: numberOrUndefined('salt'), nvt_ps: numberOrUndefined('nvt-ps'), npt_ps: numberOrUndefined('npt-ps'), md_ns: numberOrUndefined('md-ns'), xtc_ps: numberOrUndefined('xtc-ps'), padding: numberOrUndefined('padding'), box_type: $('#box-type').value, seed: numberOrUndefined('seed')
+        };
+        setBusy(button, true);
+        try {
+          const result = await api(API.jobCreate, { method: 'POST', body: JSON.stringify(payload) });
+          if (result.job) app.state.job = result.job;
+          if (result.task) app.state.task = result.task;
+          appendLog('已提交任务创建。');
+          toast('任务已提交服务端创建。');
+          renderState();
+          await loadState(true);
+        } catch (error) {
+          appendLog(`任务创建失败: ${error.message}`);
+          toast(error.message, 'error');
+        } finally { setBusy(button, false); }
+      }
+
+      async function openJob(button) {
+        setBusy(button, true);
+        try {
+          const browseResult = await api(API.browse, { method: 'POST', body: JSON.stringify({ kind: 'directory' }) });
+          const output = browseResult.path;
+          if (!output) throw new Error('后端未返回已有任务目录。');
+          const result = await api(API.jobOpen, { method: 'POST', body: JSON.stringify({ path: output }) });
+          if (result.job) app.state.job = result.job;
+          if (result.task) app.state.task = result.task;
+          appendLog(`已请求打开任务: ${output}`);
+          toast('已请求服务端打开任务。');
+          renderState();
+          await loadState(true);
+        } catch (error) {
+          appendLog(`打开任务失败: ${error.message}`);
+          toast(error.message, 'error');
+        } finally { setBusy(button, false); }
+      }
+
+      async function saveEnvironment(button) {
+        setBusy(button, true);
+        try {
+          const result = await api(API.environment, { method: 'POST', body: JSON.stringify(environmentPayload()) });
+          if (result.environment) app.state.environment = result.environment;
+          if (result.task) app.state.task = result.task;
+          appendLog('已提交环境设置与检测。');
+          toast('环境设置已提交服务端。');
+          renderState();
+          await loadState(true);
+        } catch (error) {
+          appendLog(`环境设置失败: ${error.message}`);
+          toast(error.message, 'error');
+        } finally { setBusy(button, false); }
+      }
+
+      function activateTab(name, focus = false) {
+        for (const tab of $$('.step')) {
+          const selected = tab.dataset.tab === name;
+          tab.setAttribute('aria-selected', String(selected));
+          tab.tabIndex = selected ? 0 : -1;
+          if (selected && focus) tab.focus();
+        }
+        for (const panel of $$('[role="tabpanel"]')) panel.hidden = panel.id !== `panel-${name}`;
+        $('#current-title').textContent = TITLES[name];
+      }
+
+      function bindTabs() {
+        const tabs = $$('.step');
+        tabs.forEach((tab, index) => {
+          tab.addEventListener('click', () => activateTab(tab.dataset.tab));
+          tab.addEventListener('keydown', event => {
+            const direction = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }[event.key];
+            if (!direction) return;
+            event.preventDefault();
+            const next = tabs[(index + direction + tabs.length) % tabs.length];
+            activateTab(next.dataset.tab, true);
+          });
+        });
+      }
+
+      function bindEvents() {
+        bindTabs();
+        $('#trajectory-to-vmd').addEventListener('click', () => activateTab('vmd', true));
+        $('#job-form').addEventListener('submit', createJob);
+        $('#open-job').addEventListener('click', () => openJob($('#open-job')));
+        $('#save-environment').addEventListener('click', () => saveEnvironment($('#save-environment')));
+        $('#preset').addEventListener('change', updatePreset);
+        $('input[name="mode"]').addEventListener('change', updateMode);
+        $$('input[name="mode"]').forEach(input => input.addEventListener('change', updateMode));
+        $('#sequence-a').addEventListener('input', updateMode);
+        $('#sequence-b').addEventListener('input', updateSequencePreview);
+        $('#task-name').addEventListener('input', () => { $('#summary-name').textContent = $('#task-name').value.trim() || '新任务'; });
+        $('#copy-vmd-command').addEventListener('click', async () => {
+          try {
+            await navigator.clipboard.writeText($('#vmd-select-command').value);
+            toast('已复制 VMD 选帧命令。');
+          } catch (error) {
+            appendLog(`复制 VMD 命令失败: ${error.message}`);
+            toast('浏览器未允许复制；请手动复制命令。', 'error');
+          }
+        });
+        $$('input, select, textarea').forEach(input => input.addEventListener('input', () => {
+          input.dataset.dirty = 'true';
+          if (input.closest('#panel-results')) { renderDos(); updateDosControls(); }
+        }));
+        $$('[data-browse]').forEach(button => button.addEventListener('click', () => browse(button)));
+        document.addEventListener('click', async event => {
+          const copy = event.target.closest('[data-copy-command]');
+          if (copy && !copy.disabled) {
+            try {
+              await navigator.clipboard.writeText(copy.dataset.copyCommand);
+              toast('已复制超算命令。请在超算运行后将回传文件复制回当前任务目录。');
+            } catch (error) {
+              appendLog(`复制超算命令失败: ${error.message}`);
+              toast('浏览器未允许复制；请手动复制命令。', 'error');
+            }
+            return;
+          }
+          const button = event.target.closest('[data-action]');
+          if (button && !button.disabled) submitAction(button.dataset.action, button);
+        });
+      }
+
+      bindEvents();
+      updatePreset();
+      renderState();
+      loadState();
+      window.setInterval(() => { if (document.visibilityState === 'visible') loadState(true); }, 3500);
+    })();
+  </script>
+</body>
+</html>
