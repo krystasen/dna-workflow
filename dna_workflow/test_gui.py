@@ -83,6 +83,25 @@ class GuiApiTest(unittest.TestCase):
         self.assertEqual(status, 409)
         self.assertIn("Open an existing job", data["error"])
 
+    def test_reopen_clears_old_failure_but_keeps_missing_return_blocked(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            job = Path(tmp)
+            (job / "workflow.json").write_text('{}')
+            for name in ('em.log', 'em.tpr', 'em.mdp'):
+                (job / name).write_text('test')
+            self.app.job = job
+            self.app.task = dict(action='solvate', status='failed', error='old failure')
+            self.app.open_job({'path': str(job)})
+            self.assertIsNone(self.app.task)
+            stage = self.app.state()['job']['md_stages']['em']
+            self.assertFalse(stage['can_verify'])
+            self.assertEqual(stage['status'], 'blocked')
+            self.assertIn('em.gro', stage['reason'])
+            self.app.task = dict(action='verify_em', status='running')
+            with self.assertRaises(gui.APIError):
+                self.app.open_job({'path': str(job)})
+            self.assertEqual(self.app.task['status'], 'running')
+
     def test_wsl_argv_keeps_space_paths_as_single_arguments(self):
         argv = gui.wsl_argv("Ubuntu-24.04", "/opt/gromacs/2025.4/bin/gmx",
                             "/mnt/d/data/obsidian/05 Code/dna_workflow/md_pipeline.py",

@@ -158,12 +158,13 @@ class App:
             tpr = self.job / f"{stage}.tpr"
             prepared = tpr.is_file() and tpr.stat().st_size > 0
             returned = any((self.job / f"{stage}.{ext}").is_file() for ext in ("gro", "log", "cpt", "xtc"))
-            status = "verified" if verified else ("returned" if returned else ("prepared" if prepared else ("blocked" if missing else "ready")))
+            incomplete_return = returned and bool(missing_returns)
+            status = "verified" if verified else ("blocked" if incomplete_return else ("returned" if returned else ("prepared" if prepared else ("blocked" if missing else "ready"))))
             md_stages[stage] = {"status": status, "can_prepare": not missing and not prepared,
                                 "can_verify": not missing_returns, "missing_inputs": missing,
                                 "missing_returns": missing_returns, "return_files": return_files(stage),
                                 "command": f"gmx mdrun -deffnm {stage}", "tpr": str(tpr),
-                                "predecessor": previous, "reason": "；".join(missing)}
+                                "predecessor": previous, "reason": ("回传不完整，缺少：" + "、".join(missing_returns)) if incomplete_return else "；".join(missing)}
             stages[stage] = "verified" if verified else ("unverified" if returned else ("prepared" if prepared else "pending"))
             stages[f"prepare_{stage}"] = "complete" if prepared else "pending"
             stages[f"verify_{stage}"] = "complete" if verified else "pending"
@@ -216,7 +217,7 @@ class App:
         except (OSError, json.JSONDecodeError) as exc:
             raise APIError(f"Cannot read workflow.json: {exc}") from None
         with self.lock:
-            if self.job != path and (not self.task or self.task.get("status") != "running"):
+            if not self.task or self.task.get("status") != "running":
                 self.task = None
             self.job = path
 
