@@ -144,7 +144,8 @@ def make_partition(header: dict, mapping: Path, geometry: Path, pdb: Path) -> di
         for position in positions:
             selected = [row for row in rows if row["chain"] == chain and int(row["nucleotide_1based"]) == position]
             bases = {row["resname"] for row in selected}
-            pairs = {int(row["bp_1based"]) for row in selected}
+            pairs = {int(row["nucleotide_1based"] if len(chains) == 1 else row["bp_1based"])
+                     for row in selected}
             if len(bases) != 1 or next(iter(bases)) not in BASES or len(pairs) != 1:
                 raise ValueError("Each nucleotide needs one bp assignment and a supported DA/DC/DG/DT identity; modified bases are not substituted.")
             base = BASES[next(iter(bases))]
