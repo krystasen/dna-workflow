@@ -10,6 +10,7 @@
 !/test_dna_dos_v2.py
 /dna_workflow/*
 !/dna_workflow/*.py
+!/dna_workflow/AMBER_OPC_GUIDE.md
 !/dna_workflow/*.tcl
 !/dna_workflow/*.ps1
 !/dna_workflow/*.cmd

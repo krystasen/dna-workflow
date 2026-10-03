@@ -22,7 +22,7 @@ import time
 if os.name == "posix":
     import pty
 
-from dna_workflow import read_pdb, restore_identity, save_json, validate_dna, pdb_text
+from dna_workflow import read_pdb, restore_identity, save_json, validate_dna, validate_job_dna, pdb_text, MD_MODELS
 
 
 MD_STAGES = ("em", "nvt", "npt", "md")
@@ -310,6 +310,18 @@ def run(args):
     command(["--version"], "gromacs-version")
     stages = ["em", "nvt", "npt", "md"] if args.stage == "production" else [args.stage]
     for stage in stages:
+        if stage in {"topology", "solvate"} and cfg.get("md_model", MD_MODELS[0]) != MD_MODELS[0]:
+            script = Path(__file__).resolve().with_name("amber_backend.py")
+            argv = [cfg["amber_python"], str(script), stage, "--job", str(job)]
+            stream_process(argv, job, job / "logs" / f"amber-{stage}-pipeline.log")
+            if stage == "topology":
+                atoms = restore_identity(read_pdb(job / "topology.pdb"), cfg["strands_5to3"])
+                check = validate_job_dna(atoms, job, cfg)
+                (job / "dna_reference.pdb").write_text(pdb_text(atoms), encoding="ascii")
+                mark(stage, check)
+            else:
+                require("solv_ions.gro", "topol.top", "solvate.complete.json")
+            continue
         if stage == "topology":
             fresh("topol.top", "topology.pdb")
             print("Choose 5TER at each 5' end and 3TER at each 3' end (not None/5PHO).", flush=True)
@@ -412,7 +424,7 @@ def run(args):
             require("workflow.json", "topology.pdb", "md.tpr", "md.xtc")
             fresh("dna.ndx", "dna.tpr", "dna_molecules.xtc", "dna_clustered.xtc", "dna_whole.xtc", "dna.pdb", "handoff.complete.json")
             topology = restore_identity(read_pdb(job / "topology.pdb"), cfg["strands_5to3"])
-            validate_dna(topology, cfg["strands_5to3"], job / cfg["forcefield"], hydrogens=True)
+            validate_job_dna(topology, job, cfg)
             count = len(topology)
             ids = list(range(1, count + 1))
             (job / "dna.ndx").write_text("[ DNA ]\n" + "\n".join(" ".join(map(str, ids[i:i+15])) for i in range(0, count, 15)) + "\n", encoding="ascii")
@@ -428,9 +440,10 @@ def run(args):
                      "-center", "-boxcenter", "tric", "-pbc", "none"], "dna-center", "0\n0\n")
             command(["trjconv", "-s", "dna.tpr", "-f", "dna_whole.xtc", "-n", "dna.ndx", "-o", "dna.pdb", "-dump", "0"], "dna-reference", "0\n")
             reference = restore_trajectory_identity(read_pdb(job / "dna.pdb"), read_pdb(job / "topology.pdb"), cfg["strands_5to3"])
-            validate_dna(reference, cfg["strands_5to3"], job / cfg["forcefield"], hydrogens=True)
+            validate_job_dna(reference, job, cfg)
             (job / "dna.pdb").write_text(pdb_text(reference), encoding="ascii")
-            mark(stage, {"return_to_local": ["dna_whole.xtc", "dna.pdb", "dna.tpr", "topology.pdb", "workflow.json", "vmd_handoff.tcl", cfg["forcefield"]],
+            identity_file = "dna_manifest.json" if cfg.get("md_model", MD_MODELS[0]) != MD_MODELS[0] else cfg["forcefield"]
+            mark(stage, {"return_to_local": ["dna_whole.xtc", "dna.pdb", "dna.tpr", "topology.pdb", "workflow.json", "vmd_handoff.tcl", identity_file],
                          "centered": True, "box_center": "tric", "centering_method": "GROMACS selection bounding-box center",
                          "selection": "all DNA atoms including H; all strands together",
                          "atom_count": count, "strand_count": len(cfg["strands_5to3"]),

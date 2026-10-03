@@ -78,7 +78,7 @@ def main():
         def fake_run(args):
             assert args.stage == "prepare_em"
         with patch.object(ext, "read_pdb", side_effect=[dna, raw]), patch.object(ext, "restore_identity", side_effect=lambda atoms, strands: atoms), \
-             patch.object(ext, "validate_dna", return_value={"atom_count": 2}), patch.object(ext, "select_dna_atoms", return_value=dna), \
+             patch.object(ext, "validate_job_dna", return_value={"atom_count": 2}), patch.object(ext, "select_dna_atoms", return_value=dna), \
              patch.object(ext, "_copy_relax_inputs"), patch.object(ext, "_command_for_job", side_effect=command_factory), patch.object(ext.md, "run", side_effect=fake_run):
             ext.prepare_relax(SimpleNamespace(job=parent, frame=frame, output=root / "prepared", gmx="gmx", padding=1.5, salt=0.15, box_type="dodecahedron"))
         assert [parts[0] for parts in calls] == ["editconf", "solvate", "grompp", "genion"]

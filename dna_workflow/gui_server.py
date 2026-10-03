@@ -16,6 +16,7 @@ from urllib.parse import unquote, urlparse
 import uuid
 import webbrowser
 from md_pipeline import MD_STAGES, return_files, verified_return
+from dna_workflow import MD_MODELS, AMBER_ENV
 
 
 HERE = Path(__file__).resolve().parent
@@ -45,6 +46,10 @@ DEFAULTS = {
     "xtc_ps": 10.0,
     "padding": 1.5,
     "seed": 20260905,
+    "md_model": "charmm36_tip3p",
+    "amber_tleap": AMBER_ENV + "/bin/tleap",
+    "amber_python": AMBER_ENV + "/bin/python",
+    "salt_cation": "Na+",
 }
 PREPARATION_ACTIONS = {f"prepare_{s}" for s in MD_STAGES}
 VERIFICATION_ACTIONS = {f"verify_{s}" for s in MD_STAGES}
@@ -153,12 +158,13 @@ class App:
             tpr = self.job / f"{stage}.tpr"
             prepared = tpr.is_file() and tpr.stat().st_size > 0
             returned = any((self.job / f"{stage}.{ext}").is_file() for ext in ("gro", "log", "cpt", "xtc"))
-            status = "verified" if verified else ("returned" if returned else ("prepared" if prepared else ("blocked" if missing else "ready")))
+            incomplete_return = returned and bool(missing_returns)
+            status = "verified" if verified else ("blocked" if incomplete_return else ("returned" if returned else ("prepared" if prepared else ("blocked" if missing else "ready"))))
             md_stages[stage] = {"status": status, "can_prepare": not missing and not prepared,
                                 "can_verify": not missing_returns, "missing_inputs": missing,
                                 "missing_returns": missing_returns, "return_files": return_files(stage),
                                 "command": f"gmx mdrun -deffnm {stage}", "tpr": str(tpr),
-                                "predecessor": previous, "reason": "；".join(missing)}
+                                "predecessor": previous, "reason": ("回传不完整，缺少：" + "、".join(missing_returns)) if incomplete_return else "；".join(missing)}
             stages[stage] = "verified" if verified else ("unverified" if returned else ("prepared" if prepared else "pending"))
             stages[f"prepare_{stage}"] = "complete" if prepared else "pending"
             stages[f"verify_{stage}"] = "complete" if verified else "pending"
@@ -167,7 +173,8 @@ class App:
             path = self.job / name
             if path.exists():
                 artifacts[name] = str(path)
-        missing_trajectory = [n for n in ("md.tpr", "md.xtc", "topology.pdb", config.get("forcefield", "")) if not (self.job / n).exists()]
+        identity_file = "dna_manifest.json" if config.get("md_model", MD_MODELS[0]) != MD_MODELS[0] else config.get("forcefield", "")
+        missing_trajectory = [n for n in ("md.tpr", "md.xtc", "topology.pdb", identity_file) if not (self.job / n).exists()]
         existing_trajectory = [n for n in ("dna.ndx", "dna.tpr", "dna_molecules.xtc", "dna_clustered.xtc", "dna_whole.xtc", "dna.pdb", "handoff.complete.json") if (self.job / n).exists()]
         try:
             centered = json.loads((self.job / "handoff.complete.json").read_text(encoding="utf-8")).get("centered", False)
@@ -210,7 +217,7 @@ class App:
         except (OSError, json.JSONDecodeError) as exc:
             raise APIError(f"Cannot read workflow.json: {exc}") from None
         with self.lock:
-            if self.job != path and (not self.task or self.task.get("status") != "running"):
+            if not self.task or self.task.get("status") != "running":
                 self.task = None
             self.job = path
 
@@ -233,6 +240,24 @@ class App:
                                      encoding="utf-8", errors="replace", stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=20)
             if version.returncode:
                 raise RuntimeError(version.stdout.strip() or f"{gmx} --version failed")
+            model = payload.get("md_model", MD_MODELS[0])
+            if model not in MD_MODELS:
+                raise RuntimeError("Unknown MD model")
+            if model != MD_MODELS[0]:
+                amber_python = payload.get("amber_python") or self.defaults["amber_python"]
+                tleap = payload.get("amber_tleap") or self.defaults["amber_tleap"]
+                check = subprocess.run(["wsl.exe", "-d", distribution, "--exec", amber_python, "-c",
+                    "import sys, pathlib, parmed; p=pathlib.Path(sys.argv[1]); "
+                    "assert p.is_file(), 'tleap missing'; "
+                    "r=p.parent.parent/'dat/leap/cmd'; "
+                    "assert (r/('leaprc.DNA.'+sys.argv[2])).is_file(), 'DNA parameters missing'; "
+                    "assert (r/'leaprc.water.opc').is_file(), 'OPC parameters missing'; "
+                    "print('ParmEd '+parmed.__version__+'; '+sys.argv[2]+' + OPC available')",
+                    tleap, model.split('_')[0].upper()], text=True, encoding="utf-8", errors="replace",
+                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=30)
+                if check.returncode:
+                    raise RuntimeError(check.stdout.strip() or "AmberTools environment check failed")
+                version.stdout += "\n" + check.stdout
             with self.lock:
                 self.environment.update({"distribution": distribution, "gmx": gmx, "status": "ready", "error": None,
                                          "distributions": distributions, "version": version.stdout.strip(), "wsl_status": status.stdout.strip()})
@@ -325,22 +350,44 @@ class App:
             partner = required(payload, "partner")
             reject_o6meg(partner, "partner")
         output = Path(required(payload, "output")).expanduser().resolve()
-        forcefield = Path(required(payload, "forcefield")).expanduser().resolve()
+        model = payload.get("md_model", MD_MODELS[0])
+        if model not in MD_MODELS:
+            raise APIError("Unsupported DNA/water model.")
+        amber = model != MD_MODELS[0]
+        forcefield = None if amber else Path(required(payload, "forcefield")).expanduser().resolve()
+        if not amber:
+            if not forcefield.is_dir() or not (forcefield / "na.rtp").is_file():
+                raise APIError(f"CHARMM 力场目录无效或缺少 na.rtp：{forcefield}")
+        if amber:
+            for key in ("amber_python", "amber_tleap"):
+                value = payload.get(key, self.defaults[key])
+                if not isinstance(value, str) or not value.startswith("/") or any(c in value for c in "\n\r\0"):
+                    raise APIError(f"{key} must be an absolute WSL executable path.")
+            if payload.get("salt_cation", "Na+") not in {"Na+", "K+"}:
+                raise APIError("Select Na+ or K+ for OPC salt.")
         if output.exists():
             raise APIError("output already exists; choose a new empty job directory rather than overwriting a prior job.")
         values = {name: number(payload, name) for name in ("temperature", "salt", "nvt_ps", "npt_ps", "md_ns", "xtc_ps", "padding", "seed")}
         box_type = payload.get("box_type", "dodecahedron")
         if box_type not in {"cubic", "dodecahedron", "octahedron", "triclinic"}:
             raise APIError("Unsupported box type.")
+        if amber and box_type == "dodecahedron":
+            raise APIError("AmberTools 首版不支持菱形十二面体；请明确选择 cubic、triclinic 或 octahedron（截角八面体）。")
         if not RUNTIME.is_file():
             raise APIError(f"Workflow runtime was not found: {RUNTIME}")
 
         def work(task_id: str):
             argv = [str(RUNTIME), "-u", str(HERE / "dna_workflow.py"), "build", "--sequence", sequence,
-                    "--forcefield", str(forcefield), "--output", str(output), "--temperature", str(values["temperature"]),
+                    "--md-model", model, "--output", str(output), "--temperature", str(values["temperature"]),
                     "--salt", str(values["salt"]), "--nvt-ps", str(values["nvt_ps"]), "--npt-ps", str(values["npt_ps"]),
                     "--md-ns", str(values["md_ns"]), "--xtc-ps", str(values["xtc_ps"]), "--padding", str(values["padding"]),
                     "--seed", str(int(values["seed"])), "--box-type", box_type]
+            if amber:
+                argv += ["--amber-python", payload.get("amber_python", self.defaults["amber_python"]),
+                         "--amber-tleap", payload.get("amber_tleap", self.defaults["amber_tleap"]),
+                         "--salt-cation", payload.get("salt_cation", "Na+")]
+            else:
+                argv += ["--forcefield", str(forcefield)]
             argv += ["--single"] if mode == "single" else (["--duplex"] if mode == "duplex" else ["--partner", partner])
             self._run(task_id, argv)
             self.open_job({"path": str(output)})
@@ -371,7 +418,8 @@ class App:
                 raise APIError(f"Workflow runtime was not found: {RUNTIME}")
         if action == "handoff":
             config = json.loads((job / "workflow.json").read_text(encoding="utf-8"))
-            missing = [name for name in ("topology.pdb", "md.tpr", "md.xtc", config.get("forcefield", "")) if not (job / name).exists()]
+            identity_file = "dna_manifest.json" if config.get("md_model", MD_MODELS[0]) != MD_MODELS[0] else config.get("forcefield", "")
+            missing = [name for name in ("topology.pdb", "md.tpr", "md.xtc", identity_file) if not (job / name).exists()]
             if missing:
                 raise APIError("handoff requires workflow/forcefield/topology.pdb/md.tpr/md.xtc; missing: " + ", ".join(missing))
         if action == "open_vmd":

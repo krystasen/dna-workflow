@@ -32,7 +32,8 @@ def synthetic_gaussian_source(root: Path, single=False):
                 serial = len(atoms) + 1
                 xyz = np.asarray([x if strand == 0 else 5.5 - x, y + strand * 15., 0.])
                 atoms.append((element, xyz))
-                rows.append([serial, serial, chain, position, "D" + base, name, position if strand == 0 else 3 - position])
+                rows.append([serial, serial, chain, position, "D" + base, name,
+                             "" if single else position if strand == 0 else 3 - position])
     fields = ["gaussian_atom_1based", "source_pdb_serial", "chain", "nucleotide_1based", "resname", "atom_name", "bp_1based"]
     with (root / "atom_mapping.csv").open("w", newline="", encoding="utf-8") as handle:
         writer = csv.writer(handle)
