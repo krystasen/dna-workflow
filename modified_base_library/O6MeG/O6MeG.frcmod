@@ -1,0 +1,25 @@
+O6MeG RESP + OL21 backbone; local AMBER/GAFF2 analogy terms
+MASS
+
+
+BOND
+CQ-N2          481.0000    1.34000  parm10.dat:CA-N2
+CA-OS          343.3400    1.36880  gaff2.dat:ca-os
+
+ANGLE
+N2-CQ-NC          70.0000  119.30000  parm10.dat:N2-CA-NC
+CQ-N2-H           50.0000  120.00000  parm10.dat:CA-N2-H
+NC-CA-OS          85.4700  119.76000  gaff2.dat:nb-ca-os
+CA-OS-CT          88.2600  118.39000  gaff2.dat:ca-os-c3
+CB-CA-OS          79.0000  119.11000  gaff2.dat:ca-ca-os
+
+DIHE
+NC-CQ-N2-H         1    2.40000  180.00000    2.00000  parm10.dat:X-CA-N2-X
+NC-CA-OS-CT        1    0.90000  180.00000    2.00000  gaff2.dat:X-ca-os-X
+CB-CA-OS-CT        1    1.66000  180.00000    2.00000  gaff2.dat:ca-ca-os-c3
+
+IMPROPER
+N2-NC-CQ-NC           1.10000  180.00000    2.00000  parm10.dat:N2-NA-CA-NC
+CB-NC-CA-OS           1.10000  180.00000    2.00000  parm10.dat:CB-N2-CA-NC
+
+NONBON

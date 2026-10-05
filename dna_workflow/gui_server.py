@@ -17,6 +17,7 @@ import uuid
 import webbrowser
 from md_pipeline import MD_STAGES, return_files, verified_return
 from dna_workflow import MD_MODELS, AMBER_ENV
+from modified_bases import available_bases, validate_modifications
 
 
 HERE = Path(__file__).resolve().parent
@@ -88,7 +89,7 @@ def number(data: dict, name: str) -> float:
 def reject_o6meg(value: str, field: str) -> None:
     compact = "".join(value.upper().replace("−", "-").split())
     if "O6MEG" in compact or "O6-MEG" in compact:
-        raise APIError(f"{field}: O6-MeG is not supported by this canonical-DNA workflow; it will not be substituted with G.")
+        raise APIError(f"{field}: 请保留 A/C/G/T 序列，并通过修饰入口指定 O6MeG 位点；不要在序列中直接写修饰标签。")
 
 
 def safe_gmx(value: str) -> str:
@@ -127,7 +128,8 @@ class App:
             environment = dict(self.environment)
             defaults = dict(self.defaults)
             job = self._job_state()
-        return {"environment": environment, "job": job, "task": task, "defaults": defaults}
+        return {"environment": environment, "job": job, "task": task, "defaults": defaults,
+                "modified_bases": available_bases()}
 
     def _job_state(self) -> dict | None:
         if self.job is None:
@@ -353,6 +355,13 @@ class App:
         model = payload.get("md_model", MD_MODELS[0])
         if model not in MD_MODELS:
             raise APIError("Unsupported DNA/water model.")
+        from dna_workflow import sequence as clean_sequence, complement
+        try:
+            canonical = clean_sequence(sequence)
+            strands = [canonical] if mode == "single" else [canonical, clean_sequence(partner) if mode == "partner" else complement(canonical)]
+            modifications = validate_modifications(payload.get("modifications"), strands, model)
+        except ValueError as exc:
+            raise APIError(str(exc)) from exc
         amber = model != MD_MODELS[0]
         forcefield = None if amber else Path(required(payload, "forcefield")).expanduser().resolve()
         if not amber:
@@ -386,6 +395,8 @@ class App:
                 argv += ["--amber-python", payload.get("amber_python", self.defaults["amber_python"]),
                          "--amber-tleap", payload.get("amber_tleap", self.defaults["amber_tleap"]),
                          "--salt-cation", payload.get("salt_cation", "Na+")]
+                if modifications:
+                    argv += ["--modifications", json.dumps(modifications)]
             else:
                 argv += ["--forcefield", str(forcefield)]
             argv += ["--single"] if mode == "single" else (["--duplex"] if mode == "duplex" else ["--partner", partner])

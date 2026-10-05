@@ -75,7 +75,7 @@ class GuiApiTest(unittest.TestCase):
     def test_o6meg_is_rejected_before_any_build(self):
         status, data = self.request("/api/job/create", {"sequence": "ACO6-MeGTA"})
         self.assertEqual(status, 400)
-        self.assertIn("not supported", data["error"])
+        self.assertIn("修饰入口", data["error"])
         self.assertIsNone(self.app.job)
 
     def test_action_requires_open_job(self):

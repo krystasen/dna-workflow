@@ -133,9 +133,9 @@ def completed_step(text: str) -> int:
     return int(match[1])
 
 
-def restore_trajectory_identity(exported, topology, strands):
+def restore_trajectory_identity(exported, topology, strands, modifications=None):
     """trjconv can drop chain IDs; restore identity by the unchanged topology atom order."""
-    reference = restore_identity(topology, strands)
+    reference = restore_identity(topology, strands, modifications)
     if [(a.name, a.residue) for a in exported] != [(a.name, a.residue) for a in reference]:
         raise ValueError("Trajectory atoms differ from topology; do not guess chain membership.")
     return [replace(a, xyz=b.xyz) for a, b in zip(reference, exported)]
@@ -315,7 +315,7 @@ def run(args):
             argv = [cfg["amber_python"], str(script), stage, "--job", str(job)]
             stream_process(argv, job, job / "logs" / f"amber-{stage}-pipeline.log")
             if stage == "topology":
-                atoms = restore_identity(read_pdb(job / "topology.pdb"), cfg["strands_5to3"])
+                atoms = restore_identity(read_pdb(job / "topology.pdb"), cfg["strands_5to3"], cfg.get("modifications"))
                 check = validate_job_dna(atoms, job, cfg)
                 (job / "dna_reference.pdb").write_text(pdb_text(atoms), encoding="ascii")
                 mark(stage, check)
@@ -333,7 +333,7 @@ def run(args):
                                  job / "topology.terminal_selections.json", len(cfg["strands_5to3"]), args.terminal_timeout)
             else:
                 command(parts, "topology")
-            atoms = restore_identity(read_pdb(job / "topology.pdb"), cfg["strands_5to3"])
+            atoms = restore_identity(read_pdb(job / "topology.pdb"), cfg["strands_5to3"], cfg.get("modifications"))
             check = validate_dna(atoms, cfg["strands_5to3"], job / cfg["forcefield"], hydrogens=True)
             (job / "dna_reference.pdb").write_text(pdb_text(atoms), encoding="ascii")
             check["validation"] = "pdb2gmx executed; all-atom CHARMM names, sequence, termini and bond lengths passed"
@@ -423,7 +423,7 @@ def run(args):
             # `verify_md` is the separate, explicit proof-of-completion action.
             require("workflow.json", "topology.pdb", "md.tpr", "md.xtc")
             fresh("dna.ndx", "dna.tpr", "dna_molecules.xtc", "dna_clustered.xtc", "dna_whole.xtc", "dna.pdb", "handoff.complete.json")
-            topology = restore_identity(read_pdb(job / "topology.pdb"), cfg["strands_5to3"])
+            topology = restore_identity(read_pdb(job / "topology.pdb"), cfg["strands_5to3"], cfg.get("modifications"))
             validate_job_dna(topology, job, cfg)
             count = len(topology)
             ids = list(range(1, count + 1))
@@ -439,7 +439,7 @@ def run(args):
             command(["trjconv", "-s", "dna.tpr", "-f", clustered, "-n", "dna.ndx", "-o", "dna_whole.xtc",
                      "-center", "-boxcenter", "tric", "-pbc", "none"], "dna-center", "0\n0\n")
             command(["trjconv", "-s", "dna.tpr", "-f", "dna_whole.xtc", "-n", "dna.ndx", "-o", "dna.pdb", "-dump", "0"], "dna-reference", "0\n")
-            reference = restore_trajectory_identity(read_pdb(job / "dna.pdb"), read_pdb(job / "topology.pdb"), cfg["strands_5to3"])
+            reference = restore_trajectory_identity(read_pdb(job / "dna.pdb"), read_pdb(job / "topology.pdb"), cfg["strands_5to3"], cfg.get("modifications"))
             validate_job_dna(reference, job, cfg)
             (job / "dna.pdb").write_text(pdb_text(reference), encoding="ascii")
             identity_file = "dna_manifest.json" if cfg.get("md_model", MD_MODELS[0]) != MD_MODELS[0] else cfg["forcefield"]

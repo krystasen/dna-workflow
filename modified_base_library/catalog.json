@@ -1,0 +1,19 @@
+{
+  "library": "modified DNA base RESP charges",
+  "entries": {
+    "O6MeG": {
+      "path": "O6MeG/entry.json",
+      "status": "MD_topology_complete_initial_analogy",
+      "MD_topology_ready": true,
+      "internal_residue_target_charge_e": -1,
+      "templates": [
+        "OG6",
+        "OG5",
+        "OG3",
+        "OGN"
+      ],
+      "parent_force_field": "DNA.OL21",
+      "production_MD_approved": false
+    }
+  }
+}

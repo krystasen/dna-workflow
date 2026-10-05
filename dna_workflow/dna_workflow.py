@@ -18,6 +18,8 @@ import shutil
 
 HERE = Path(__file__).resolve().parent
 BASES = {"DA", "DC", "DG", "DT"}
+from modified_bases import (RESIDUE_PARENTS, apply_modifications, expected_residues,
+                            snapshot_library, validate_modifications)
 ENVIRONMENT = {"SOL", "HOH", "WAT", "OPC", "TIP3", "SOD", "CLA", "POT", "NA", "CL", "K", "Na+", "K+", "Cl-"}
 MD_MODELS = ("charmm36_tip3p", "ol21_opc", "ol24_opc")
 AMBER_ENV = "/home/chenz/.local/share/dna-amber/env"
@@ -200,7 +202,7 @@ def validate_job_dna(atoms: list[Atom], job: Path, cfg: dict) -> dict:
     fields = ("name", "residue", "chain", "resid", "element")
     if [tuple(getattr(a, k) for k in fields) for a in atoms] != [tuple(a[k] for k in fields) for a in manifest["atoms"]]:
         raise ValueError("DNA atom identity/order differs from Amber topology manifest")
-    expected = [(chr(65+c), i+1, "D"+b) for c,s in enumerate(cfg["strands_5to3"]) for i,b in enumerate(s)]
+    expected = expected_residues(cfg["strands_5to3"], cfg.get("modifications"))
     groups = residues(atoms)
     if [(g[0].chain, g[0].resid, g[0].residue) for g in groups] != expected:
         raise ValueError("Amber residue sequence does not match the input strands")
@@ -291,6 +293,7 @@ def build(args) -> None:
     model = getattr(args, "md_model", MD_MODELS[0])
     if model not in MD_MODELS:
         raise ValueError("Unsupported DNA/water model")
+    modifications = validate_modifications(json.loads(getattr(args, "modifications", "[]")), strands, model)
     amber = model != MD_MODELS[0]
     ff = args.forcefield.resolve() if args.forcefield else None
     if not amber and (ff is None or not ff.name.endswith(".ff")):
@@ -298,6 +301,8 @@ def build(args) -> None:
     if amber and args.box_type == "dodecahedron":
         raise ValueError("AmberTools branch supports cubic/triclinic/octahedron, not dodecahedron. Select the box explicitly.")
     atoms = build_atoms(seq, len(strands) == 2)
+    if modifications:
+        atoms = apply_modifications(atoms, strands, modifications)
     report = ({"charge": -sum(len(s) - 1 for s in strands), "atom_count": len(atoms),
                "validation": "Ideal heavy-atom seed only; AmberTools topology validation pending"}
               if amber else validate_dna(atoms, strands, ff))
@@ -316,18 +321,21 @@ def build(args) -> None:
            "padding_nm": args.padding, "box_type": args.box_type, "formal_dna_charge": report["charge"],
            "openbabel_wheel_version": version("openbabel-wheel"),
            "topology_reference": "topology.pdb", "model": "Open Babel ideal helical start; not an equilibrated conformation"}
+    if modifications:
+        cfg.update(modifications=modifications, modification_parameters="RESP + initial AMBER/GAFF2 analogy; not long-time validated")
     if amber:
         cfg.update(amber_tleap=args.amber_tleap, amber_python=args.amber_python, salt_cation=args.salt_cation,
                    parameter_validation="pending; topology conversion is not force-field validation")
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
+    snapshot_library(output, modifications)
     (output / "dna_input.pdb").write_text(pdb_text(atoms), encoding="ascii")
     (output / "sequence.fasta").write_text("".join(f">strand_{chr(65+i)} 5to3\n{s}\n" for i,s in enumerate(strands)), encoding="ascii")
     save_json(output / "workflow.json", cfg)
     save_json(output / "structure_check.json", report)
     if not amber:
         shutil.copytree(ff, output / ff.name)
-    for name in ["dna_workflow.py", "md_pipeline.py", "amber_backend.py", "vmd_handoff.tcl"]:
+    for name in ["dna_workflow.py", "md_pipeline.py", "amber_backend.py", "modified_bases.py", "vmd_handoff.tcl"]:
         shutil.copyfile(HERE / name, output / name)
     for stage in ["em", "nvt", "npt", "md"]:
         (output / (stage + ".mdp")).write_text(mdp_text(stage, cfg), encoding="ascii")
@@ -335,10 +343,10 @@ def build(args) -> None:
     print(f"{len(strands)} strand(s); {len(atoms)} heavy atoms; DNA charge {report['charge']}; {report['validation']}")
 
 
-def restore_identity(atoms: list[Atom], strands: list[str]) -> list[Atom]:
+def restore_identity(atoms: list[Atom], strands: list[str], modifications: list[dict] | None = None) -> list[Atom]:
     """pdb2gmx may globally renumber residues; preserve order, restore manifest chain IDs."""
     groups = residues(atoms)
-    expected = [(chr(65+c), i+1, "D"+base) for c,s in enumerate(strands) for i,base in enumerate(s)]
+    expected = expected_residues(strands, modifications)
     if len(groups) != len(expected):
         raise ValueError("Topology residue count differs from input strands.")
     result = []
@@ -351,10 +359,11 @@ def restore_identity(atoms: list[Atom], strands: list[str]) -> list[Atom]:
 
 def select_dna_atoms(raw: list[Atom], reference: list[Atom]) -> list[Atom]:
     """Select canonical DNA from a frame without guessing changed chemistry or atom order."""
-    unknown = {a.residue for a in raw} - BASES - ENVIRONMENT
+    allowed = BASES | {a.residue for a in reference if a.residue in RESIDUE_PARENTS}
+    unknown = {a.residue for a in raw} - allowed - ENVIRONMENT
     if unknown:
         raise ValueError(f"Unsupported residues {unknown}; do not silently discard modified DNA or ligands.")
-    selected = [a for a in raw if a.residue in BASES]
+    selected = [a for a in raw if a.residue in allowed]
     if [(a.name, a.residue) for a in selected] != [(a.name, a.residue) for a in reference]:
         raise ValueError("Frame DNA atom order/completeness differs from topology.pdb. Export all DNA atoms including H in original order.")
     return selected
@@ -378,7 +387,7 @@ def gaussian(args) -> None:
             raise RuntimeError("Missing validated EM-to-PDB export; run verify_relax first.") from exc
         if exported.get("export_files") != current:
             raise RuntimeError("EM results or relaxed PDB changed since export; rerun verify_relax before Gaussian.")
-    reference = restore_identity(read_pdb(job / "topology.pdb"), cfg["strands_5to3"])
+    reference = restore_identity(read_pdb(job / "topology.pdb"), cfg["strands_5to3"], cfg.get("modifications"))
     validate_job_dna(reference, job, cfg)
     raw = read_pdb(args.frame)
     selected = select_dna_atoms(raw, reference)
@@ -436,6 +445,7 @@ def parser():
     mode.add_argument("--partner", help="Second strand written 5' -> 3'; must be reverse complement")
     p.add_argument("--forcefield", type=Path)
     p.add_argument("--md-model", choices=MD_MODELS, default=MD_MODELS[0])
+    p.add_argument("--modifications", default="[]", help="JSON list of chain/position/base modification sites")
     p.add_argument("--amber-tleap", default=AMBER_ENV + "/bin/tleap")
     p.add_argument("--amber-python", default=AMBER_ENV + "/bin/python")
     p.add_argument("--salt-cation", choices=["Na+", "K+"], default="Na+")
