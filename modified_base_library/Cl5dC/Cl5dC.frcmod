@@ -1,0 +1,18 @@
+Modified DNA local source-traceable parameter patch
+MASS
+
+
+BOND
+C1-Cl              193.000000 1.727000  parm10.dat:aryl C-Cl bond
+
+ANGLE
+C1-C1-Cl           70.000000 118.800000  parm10.dat:aryl C-C-Cl angle
+CA-C1-Cl           70.000000 118.800000  parm10.dat:aryl C-C-Cl angle
+
+DIHE
+
+
+IMPROPER
+CA-C1-C1-Cl        1.100000 180.000000 2.000000  ff-nucleic-OL21.frcmod:C5 sp2 planarity after H5 replacement; use native sp2 force constant, not a new QM fit
+
+NONBON

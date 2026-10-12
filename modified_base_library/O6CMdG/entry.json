@@ -1,0 +1,287 @@
+{
+  "id": "O6CMdG",
+  "status": "MD_topology_ready",
+  "parent_force_field": "DNA.OL21",
+  "parameter_basis": "real shared RESP; inherited OL21 plus source-traceable AMBER/GAFF2 local analogy",
+  "templates": [
+    {
+      "name": "CG6",
+      "parent": "DG",
+      "atoms": 38,
+      "charge_e": -2.000001,
+      "head": "P",
+      "tail": "O3'"
+    },
+    {
+      "name": "CG5",
+      "parent": "DG5",
+      "atoms": 36,
+      "charge_e": -1.3079009999999998,
+      "head": null,
+      "tail": "O3'"
+    },
+    {
+      "name": "CG3",
+      "parent": "DG3",
+      "atoms": 39,
+      "charge_e": -1.6921009999999999,
+      "head": "P",
+      "tail": null
+    },
+    {
+      "name": "CGN",
+      "parent": "DGN",
+      "atoms": 37,
+      "charge_e": -1.000001,
+      "head": null,
+      "tail": null
+    }
+  ],
+  "MD_topology_ready": true,
+  "physical_validation": "not established by technical smoke tests",
+  "RESP_report": {
+    "status": "RESP_complete",
+    "group": "modified",
+    "conformers": [
+      "O6CMdG_A_000",
+      "O6CMdG_B_180"
+    ],
+    "atoms_per_conformer": 37,
+    "total_charge_e": -1.0000009999999997,
+    "all_charge_constraints_passed": true,
+    "per_conformer_quality": [
+      {
+        "model": "O6CMdG_A_000",
+        "RMS_atomic_units": 0.004366076991354267,
+        "relative_RMS": 0.042137961775567404
+      },
+      {
+        "model": "O6CMdG_B_180",
+        "RMS_atomic_units": 0.004708039892604961,
+        "relative_RMS": 0.042734592153667525
+      }
+    ],
+    "pooled_relative_RMS": 0.04244161786836627,
+    "pooled_RMS_atomic_units": 0.004532254905495956,
+    "MD_topology_ready": false
+  },
+  "pending": "long-time physical validation not established",
+  "name": "O6-羧甲基鸟嘌呤（羧酸根）",
+  "parent_base": "G",
+  "chemical_state": {
+    "nucleoside_charge": -1,
+    "multiplicity": 1,
+    "internal_residue_target_charge": -2,
+    "pH_choice": "neutral-pH carboxylate selected by user; no COOH proton"
+  },
+  "chemical_source": {
+    "ccd": "6OG",
+    "URL": "https://www.rcsb.org/ligand/6OG",
+    "modification": "6OG O6-methyl scaffold; HM3 replaced by COO-, built from explicit user-approved graph"
+  },
+  "production_MD_approved": false,
+  "geometry_file": "nucleoside.xyz",
+  "alignment_atoms": [
+    "N9",
+    "C4",
+    "C8"
+  ],
+  "topology_files": {
+    "library": "O6CMdG.lib",
+    "parameters": "O6CMdG.frcmod",
+    "load_file": "leaprc.O6CMdG"
+  },
+  "validation": {
+    "library_load": true,
+    "polymer_connections": true,
+    "finite_EM": true,
+    "gromacs_export": true,
+    "energy_comparison": true,
+    "cross_residue_bonds": 2,
+    "polymer_charge_e": -3.0000009902152858,
+    "initial_AMBER_kcal_mol": -23.389433299249987,
+    "EM_AMBER_kcal_mol": -201.07893435297808,
+    "GROMACS_minus_AMBER_kJ_mol": -0.04073932466292263,
+    "physical_validation": false,
+    "evidence_files": [
+      "polymer/build.log",
+      "polymer/test.prmtop",
+      "polymer/em.out",
+      "polymer/energy.top",
+      "polymer/energy.log",
+      "opc/build.log",
+      "opc/em.tpr",
+      "opc/em.log"
+    ],
+    "opc_compatibility": true,
+    "opc_waters": 722,
+    "opc_EM_potential_kJ_mol": -36733.52
+  },
+  "chemistry_validation": {
+    "id": "O6CMdG",
+    "passed": true,
+    "validation": {
+      "library_load": true,
+      "polymer_connections": true,
+      "finite_EM": true,
+      "gromacs_export": true,
+      "energy_comparison": true,
+      "cross_residue_bonds": 2,
+      "polymer_charge_e": -3.0000009902152858,
+      "initial_AMBER_kcal_mol": -23.389433299249987,
+      "EM_AMBER_kcal_mol": -201.07893435297808,
+      "GROMACS_minus_AMBER_kJ_mol": -0.04073932466292263,
+      "physical_validation": false,
+      "evidence_files": [
+        "polymer/build.log",
+        "polymer/test.prmtop",
+        "polymer/em.out",
+        "polymer/energy.top",
+        "polymer/energy.log",
+        "opc/build.log",
+        "opc/em.tpr",
+        "opc/em.log"
+      ],
+      "opc_compatibility": true,
+      "opc_waters": 722,
+      "opc_EM_potential_kJ_mol": -36733.52
+    },
+    "coordinate_cases": [
+      {
+        "case": "internal",
+        "atoms": 102,
+        "residues": 3,
+        "charge_e": -3.0000009902152858,
+        "cross_bonds": 2,
+        "initial_energy_kcal_mol": -23.389433299249987,
+        "all_bonded_terms_assigned": true
+      },
+      {
+        "case": "fiveprime",
+        "atoms": 102,
+        "residues": 3,
+        "charge_e": -3.000000991861618,
+        "cross_bonds": 2,
+        "initial_energy_kcal_mol": -95.37681757135724,
+        "all_bonded_terms_assigned": true
+      },
+      {
+        "case": "threeprime",
+        "atoms": 99,
+        "residues": 3,
+        "charge_e": -3.0000009797885,
+        "cross_bonds": 2,
+        "initial_energy_kcal_mol": -25.0559132140732,
+        "all_bonded_terms_assigned": true
+      },
+      {
+        "case": "nucleoside",
+        "atoms": 37,
+        "residues": 1,
+        "charge_e": -1.0000009973494015,
+        "cross_bonds": 0,
+        "initial_energy_kcal_mol": -69.1532738502641,
+        "all_bonded_terms_assigned": true
+      },
+      {
+        "case": "duplex27",
+        "atoms": 1718,
+        "residues": 54,
+        "charge_e": -53.00000069442363,
+        "cross_bonds": 52,
+        "initial_energy_kcal_mol": 15181.110691013977,
+        "all_bonded_terms_assigned": true
+      }
+    ],
+    "sugar_stereochemistry_preserved": true,
+    "modified_impropers": [
+      [
+        "CM",
+        "OC1",
+        "CC",
+        "OC2"
+      ],
+      [
+        "N7",
+        "C6",
+        "C5",
+        "C4"
+      ],
+      [
+        "C5",
+        "N1",
+        "C6",
+        "O6"
+      ],
+      [
+        "N2",
+        "N3",
+        "C2",
+        "N1"
+      ],
+      [
+        "N9",
+        "C5",
+        "C4",
+        "N3"
+      ],
+      [
+        "C4",
+        "C8",
+        "N9",
+        "C1'"
+      ],
+      [
+        "N9",
+        "N7",
+        "C8",
+        "H8"
+      ],
+      [
+        "C2",
+        "H21",
+        "N2",
+        "H22"
+      ],
+      [
+        "O5'",
+        "H5'",
+        "C5'",
+        "H5''"
+      ],
+      [
+        "O5'",
+        "H5'",
+        "C5'",
+        "C4'"
+      ],
+      [
+        "C4'",
+        "H5''",
+        "C5'",
+        "O5'"
+      ],
+      [
+        "C4'",
+        "H5'",
+        "C5'",
+        "H5''"
+      ]
+    ]
+  },
+  "control_reference_status": "existing dG RESP control reused",
+  "protocol": {
+    "opt": "gas-phase B3LYP-D3BJ/6-31G(d,p), 6D/10F",
+    "ESP": "gas-phase HF/6-31G(d), 6D/10F Gaussian MK",
+    "conformers": [
+      "O6CMdG_A_000",
+      "O6CMdG_B_180"
+    ],
+    "conformer_weights": [
+      1.0,
+      1.0
+    ],
+    "geometry_model": "O6CMdG_A_000",
+    "RESP": "native two-stage, shared charges, fixed parent sugar/OH"
+  }
+}

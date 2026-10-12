@@ -89,7 +89,7 @@ def number(data: dict, name: str) -> float:
 def reject_o6meg(value: str, field: str) -> None:
     compact = "".join(value.upper().replace("−", "-").split())
     if "O6MEG" in compact or "O6-MEG" in compact:
-        raise APIError(f"{field}: 请保留 A/C/G/T 序列，并通过修饰入口指定 O6MeG 位点；不要在序列中直接写修饰标签。")
+        raise APIError(f"{field}: 请保留 A/C/G/T 序列，并通过修饰入口指定非标准碱基位点；不要在序列中直接写修饰标签。")
 
 
 def safe_gmx(value: str) -> str:

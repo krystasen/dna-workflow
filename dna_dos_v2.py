@@ -38,8 +38,13 @@ ARRAY_NAMES = {
     "ORTHOGONAL BASIS": "gaussian_orthogonal_basis.npy",
     "ALPHA ORBITAL ENERGIES": "orbital_energies_hartree.npy",
 }
-ELEMENTS = {1: "H", 6: "C", 7: "N", 8: "O", 15: "P"}
+ELEMENTS = {1: "H", 6: "C", 7: "N", 8: "O", 15: "P", 17: "Cl"}
 BASES = {"DA": "A", "DC": "C", "DG": "G", "DT": "T"}
+MODIFIED_BASES = {prefix + suffix: parent
+                 for prefix, parent in (('OG','G'), ('MC','C'), ('HC','C'), ('LC','C'),
+                                        ('DI','A'), ('MA','A'), ('XG','G'), ('CG','G'))
+                 for suffix in '653N'}
+BASES.update(MODIFIED_BASES)
 
 
 def save_json(path: Path, value: dict) -> None:
@@ -106,7 +111,7 @@ def make_partition(header: dict, mapping: Path, geometry: Path, pdb: Path) -> di
     atoms = gaussian.gaussian_geometry(geometry)
     n, nat = int(header["n_basis"]), int(header["n_atoms"])
     if len(atoms) != nat or any(element not in ELEMENTS.values() for element, _ in atoms):
-        raise ValueError("Geometry must contain exactly the MAT DNA atoms (H/C/N/O/P).")
+        raise ValueError("Geometry must contain exactly the MAT DNA atoms (H/C/N/O/P/Cl).")
     xyz = np.asarray([xyz for _, xyz in atoms])
     if [element for element, _ in atoms] != [ELEMENTS.get(int(z)) for z in header["atomic_numbers"]]:
         raise ValueError("Geometry/MAT element order differs.")
@@ -147,8 +152,9 @@ def make_partition(header: dict, mapping: Path, geometry: Path, pdb: Path) -> di
             pairs = {int(row["nucleotide_1based"] if len(chains) == 1 else row["bp_1based"])
                      for row in selected}
             if len(bases) != 1 or next(iter(bases)) not in BASES or len(pairs) != 1:
-                raise ValueError("Each nucleotide needs one bp assignment and a supported DA/DC/DG/DT identity; modified bases are not substituted.")
-            base = BASES[next(iter(bases))]
+                raise ValueError("Each nucleotide needs one bp assignment and a canonical or registered modified-DNA identity.")
+            residue_name = next(iter(bases))
+            base = BASES[residue_name]
             sequence += base
             ids = [int(row["gaussian_atom_1based"]) for row in selected]
             first, last = ids[0], ids[-1]
@@ -157,7 +163,9 @@ def make_partition(header: dict, mapping: Path, geometry: Path, pdb: Path) -> di
             names = {row["atom_name"]: int(row["gaussian_atom_1based"]) for row in selected}
             if len(names) != len(selected):
                 raise ValueError(f"Duplicate atom names in {chain}:{position}.")
-            entry = {"name": f"s{strand}_{position:02d}_{base}", "chain": chain, "position": position,
+            label = residue_name if residue_name in MODIFIED_BASES else base
+            entry = {"name": f"s{strand}_{position:02d}_{label}", "chain": chain, "position": position,
+                     "residue_name": residue_name,
                      "base": base, "base_pair": str(next(iter(pairs))), "atom_range_1based": [first, last],
                      "ao_ranges": [[int(prefix[first - 1] + 1), int(prefix[last])]], "probe": True,
                      "atom_names": names}

@@ -403,7 +403,7 @@
                     <div class="field full sequence-field"><label for="sequence-a">A 链（5′→3′）</label><input class="mono-input" id="sequence-a" name="sequence" value="GATGATGGTTGCTGGAGTTGGTGTGAA" autocomplete="off" spellcheck="false" required></div>
                     <div class="field full sequence-field"><label for="sequence-b" id="partner-label">B 链（自动反向互补，5′→3′）</label><input class="mono-input" id="sequence-b" name="partner" value="TTCACACCAACTCCAGCAACCATCATC" autocomplete="off" spellcheck="false" readonly aria-describedby="partner-help"><p class="field-help" id="partner-help">由 A 链实时生成；如需自定义 B 链，请选择“指定 B 链”。</p></div>
                     <fieldset class="field full" style="border:0;padding:0;margin:0"><legend class="field-label">构型模式</legend><div class="radio-set"><label><input type="radio" name="mode" value="single">单链</label><label><input type="radio" name="mode" value="duplex" checked>双链 · 自动反向互补</label><label><input type="radio" name="mode" value="partner">双链 · 指定 B 链</label></div></fieldset>
-                    <div class="field"><label for="preset">非标准碱基</label><select id="preset" name="preset"><option value="normal" selected>不添加修饰</option><option value="o6meg">O6MeG · O⁶-甲基鸟嘌呤</option></select></div>
+                    <div class="field"><label for="preset">非标准碱基</label><select id="preset" name="preset"><option value="normal" selected>不添加修饰</option></select></div>
                     <div class="field"><label for="task-name">新任务名</label><input id="task-name" class="mono-input" value="dna_27bp" placeholder="例如 dna_27bp" autocomplete="off" required></div>
                   </div>
                   <div id="modification-fields" class="sequence-preview" hidden>
@@ -411,7 +411,7 @@
                       <div class="field"><label for="modification-chain">修饰链</label><select id="modification-chain"><option value="A">A 链</option><option value="B">B 链</option></select></div>
                       <div class="field"><label for="modification-position">位置 · 从5′端计数</label><input id="modification-position" type="number" min="1" step="1" value="14" aria-describedby="modification-help"></div>
                     </div>
-                    <p id="modification-help" class="field-help" role="status" style="margin-top:10px">保留原始 A/C/G/T 序列；所选 G 位点将替换为 O6MeG，配对链不自动改变。</p>
+                    <p id="modification-help" class="field-help" role="status" style="margin-top:10px">保留原始 A/C/G/T 序列；通过修饰类型、链和位置替换碱基，配对链不自动改变。</p>
                   </div>
                   <div class="sequence-metrics" aria-live="polite"><div><span id="metric-length">—</span><small>长度</small></div><div><span id="metric-gc">—</span><small>A 链 GC</small></div><div><span id="metric-modification">—</span><small>修饰标记</small></div></div>
                   <div class="callout" id="preset-notice" data-tone="teal" hidden aria-live="polite"><span>注</span><span><strong>正常预设。</strong>请在开始 MD 前确认链方向、末端和修饰方案。</span></div>
@@ -1125,6 +1125,7 @@
       }
 
       function renderState() {
+        renderModificationOptions();
         renderTask();
         renderJobPath();
         renderEnvironment();
@@ -1317,7 +1318,8 @@
       }
 
       function updatePreset() {
-        const enabled = $('#preset').value === 'o6meg';
+        const enabled = $('#preset').value !== 'normal';
+        const entry = (app.state.modified_bases || []).find(row => row.id === $('#preset').value);
         $('#modification-fields').hidden = !enabled;
         const note = $('#preset-notice');
         note.hidden = !enabled;
@@ -1327,7 +1329,8 @@
         const marker = document.createElement('span');
         const text = document.createElement('span');
         marker.textContent = error ? '检查' : '参数库';
-        text.textContent = error || 'O6MeG 使用已有 RESP + OL21/GAFF2 初版类比参数。已通过拓扑、短EM和OPC兼容性检查，尚未验证长期物理精度；新任务将保存库文件副本。';
+        text.textContent = error || `${entry?.name || $('#preset').value} 使用 RESP + OL21 初版局部参数。已通过拓扑、短EM和OPC兼容性检查，尚未验证长期物理精度；新任务将保存库文件副本。`;
+        $('#modification-help').textContent = entry ? `保留原始 A/C/G/T 序列；所选 ${entry.parent_base} 位点将替换为 ${entry.name}，配对链不自动改变。` : '保留原始 A/C/G/T 序列；通过修饰类型、链和位置替换碱基，配对链不自动改变。';
         note.append(marker, text);
         updateSequenceMetrics();
         renderJobPath();
@@ -1335,19 +1338,30 @@
       }
 
       function selectedModifications() {
-        return $('#preset').value === 'o6meg' ? [{ chain: $('#modification-chain').value, position: Number($('#modification-position').value), base: 'O6MeG' }] : [];
+        return $('#preset').value !== 'normal' ? [{ chain: $('#modification-chain').value, position: Number($('#modification-position').value), base: $('#preset').value }] : [];
+      }
+
+      function renderModificationOptions() {
+        const select = $('#preset');
+        const entries = app.state.modified_bases || [];
+        if ([...select.options].map(option => option.value).join('|') === ['normal', ...entries.map(entry => entry.id)].join('|')) return;
+        const previous = select.value;
+        select.replaceChildren(new Option('不添加修饰', 'normal'), ...entries.map(entry => new Option(`${entry.id} · ${entry.name}`, entry.id)));
+        select.value = entries.some(entry => entry.id === previous) ? previous : 'normal';
+        updatePreset();
       }
 
       function modificationError() {
         const sites = selectedModifications();
         if (!sites.length) return '';
-        if (!(app.state.modified_bases || []).some(entry => entry.id === 'O6MeG')) return '尚未读取到可用 O6MeG 拓扑库，请确认服务端已更新。';
-        if ($('#md-model').value !== 'ol21_opc') return 'O6MeG 当前仅支持 AMBER OL21 + OPC，请在计算设置中选择对应力场。';
         const site = sites[0];
+        const entry = (app.state.modified_bases || []).find(row => row.id === site.base);
+        if (!entry) return '尚未读取到所选修饰的可用拓扑库，请确认服务端已更新。';
+        if (!entry.md_models.includes($('#md-model').value)) return `${site.base} 当前仅支持 AMBER OL21 + OPC，请在计算设置中选择对应力场。`;
         if ($('input[name="mode"]:checked').value === 'single' && site.chain !== 'A') return '单链任务只能修饰 A 链。';
         const sequence = $(site.chain === 'A' ? '#sequence-a' : '#sequence-b').value.toUpperCase().replace(/\s/g, '');
         if (!Number.isInteger(site.position) || site.position < 1 || site.position > sequence.length) return '修饰位置必须是链内从5′端计数的整数，不能超出序列长度。';
-        if (sequence[site.position - 1] !== 'G') return `${site.chain}${site.position} 不是 G，不能替换为 O6MeG。`;
+        if (sequence[site.position - 1] !== entry.parent_base) return `${site.chain}${site.position} 不是 ${entry.parent_base}，不能替换为 ${site.base}。`;
         return '';
       }
 

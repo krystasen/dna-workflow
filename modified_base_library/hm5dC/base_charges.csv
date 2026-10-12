@@ -1,0 +1,17 @@
+name,element,role,charge_e
+N1,N,fit_modified_base,-0.080499
+C2,C,fit_modified_base,0.838454
+O2,O,fit_modified_base,-0.590625
+N3,N,fit_modified_base,-0.748305
+C4,C,fit_modified_base,0.585778
+N4,N,fit_modified_base,-0.758806
+C5,C,fit_modified_base,-0.11266
+CM,C,fit_modified_base,0.129873
+OM,O,fit_modified_base,-0.623446
+C6,C,fit_modified_base,-0.078811
+H41,H,fit_modified_base,0.356695
+H42,H,fit_modified_base,0.356695
+HM2,H,fit_modified_base,0.043883
+HM1,H,fit_modified_base,0.03182
+HOM,H,fit_modified_base,0.428028
+H6,H,fit_modified_base,0.158826

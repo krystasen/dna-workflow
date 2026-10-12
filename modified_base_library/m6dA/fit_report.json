@@ -1,0 +1,26 @@
+{
+  "status": "RESP_complete",
+  "group": "modified",
+  "conformers": [
+    "m6dA_A_000",
+    "m6dA_B_180"
+  ],
+  "atoms_per_conformer": 34,
+  "total_charge_e": -9.999999997512e-07,
+  "all_charge_constraints_passed": true,
+  "per_conformer_quality": [
+    {
+      "model": "m6dA_A_000",
+      "RMS_atomic_units": 0.0034027685355507227,
+      "relative_RMS": 0.21840797455501798
+    },
+    {
+      "model": "m6dA_B_180",
+      "RMS_atomic_units": 0.0032489170898266032,
+      "relative_RMS": 0.20563843180817665
+    }
+  ],
+  "pooled_relative_RMS": 0.21207259085866226,
+  "pooled_RMS_atomic_units": 0.003327244231117839,
+  "MD_topology_ready": false
+}

@@ -1,0 +1,198 @@
+{
+  "id": "dI",
+  "status": "MD_topology_ready",
+  "parent_force_field": "DNA.OL21",
+  "parameter_basis": "real constrained RESP; inherited OL21 plus source-traceable local AMBER/GAFF2 analogy",
+  "templates": [
+    {
+      "name": "DI6",
+      "parent": "DA",
+      "atoms": 31,
+      "charge_e": -1.0,
+      "head": "P",
+      "tail": "O3'"
+    },
+    {
+      "name": "DI5",
+      "parent": "DA5",
+      "atoms": 29,
+      "charge_e": -0.30789999999999995,
+      "head": null,
+      "tail": "O3'"
+    },
+    {
+      "name": "DI3",
+      "parent": "DA3",
+      "atoms": 32,
+      "charge_e": -0.6921,
+      "head": "P",
+      "tail": null
+    },
+    {
+      "name": "DIN",
+      "parent": "DAN",
+      "atoms": 30,
+      "charge_e": 1.6653345369377348e-16,
+      "head": null,
+      "tail": null
+    }
+  ],
+  "MD_topology_ready": true,
+  "physical_validation": "not established by technical smoke tests",
+  "RESP_report": {
+    "status": "RESP_complete",
+    "group": "modified",
+    "conformers": [
+      "dI_seed"
+    ],
+    "atoms_per_conformer": 30,
+    "total_charge_e": 8.326672684688674e-16,
+    "all_charge_constraints_passed": true,
+    "per_conformer_quality": [
+      {
+        "model": "dI_seed",
+        "RMS_atomic_units": 0.0033056516351719135,
+        "relative_RMS": 0.12903480846662407
+      }
+    ],
+    "pooled_relative_RMS": 0.12903480846662407,
+    "pooled_RMS_atomic_units": 0.0033056516351719135,
+    "MD_topology_ready": false
+  },
+  "pending": "long-time physical validation; GUI integration not performed",
+  "name": "脱氧肌苷",
+  "parent_base": "A",
+  "production_MD_approved": false,
+  "chemical_state": {
+    "nucleoside_charge": 0,
+    "multiplicity": 1,
+    "internal_residue_target_charge": -1
+  },
+  "chemical_source": {
+    "ccd": "DI",
+    "URL": "https://www.rcsb.org/ligand/DI"
+  },
+  "control_reference_status": "dA QM control pending; parent OL21 charge constraints checked",
+  "protocol": {
+    "opt": "gas-phase B3LYP-D3BJ/6-31G(d,p), 6D/10F",
+    "ESP": "gas-phase HF/6-31G(d), 6D/10F Gaussian MK",
+    "RESP": "native AmberTools two-stage RESP; fixed parent sugar/OH; one shared charge set",
+    "conformer_weights": [
+      1.0
+    ],
+    "geometry_model": "dI_seed",
+    "geometry_choice": "first validated model provides library coordinates; all listed models contribute ESP"
+  },
+  "validation": {
+    "library_load": true,
+    "polymer_connections": true,
+    "finite_EM": true,
+    "gromacs_export": true,
+    "energy_comparison": true,
+    "cross_residue_bonds": 2,
+    "polymer_charge_e": -1.9999999936890505,
+    "initial_AMBER_kcal_mol": 22.263895964705767,
+    "EM_AMBER_kcal_mol": -140.33854866641605,
+    "GROMACS_minus_AMBER_kJ_mol": -0.03151250333405642,
+    "physical_validation": false,
+    "evidence_files": [
+      "polymer/build.log",
+      "polymer/test.prmtop",
+      "polymer/em.out",
+      "polymer/energy.top",
+      "polymer/energy.log",
+      "opc/build.log",
+      "opc/em.tpr",
+      "opc/em.log"
+    ],
+    "opc_compatibility": true,
+    "opc_waters": 678,
+    "opc_EM_potential_kJ_mol": -32800.352
+  },
+  "chemistry_validation": {
+    "id": "dI",
+    "sugar_stereochemistry_preserved": true,
+    "modified_sp2_planarity_improper_assigned": true,
+    "minimum_absolute_signed_volume_A3": 2.2942456084712886,
+    "modified_residue_impropers": [
+      [
+        "C5",
+        "N9",
+        "C4",
+        "N3"
+      ],
+      [
+        "C5",
+        "N1",
+        "C6",
+        "O6"
+      ],
+      [
+        "C6",
+        "C4",
+        "C5",
+        "N7"
+      ],
+      [
+        "C4",
+        "C8",
+        "N9",
+        "C1'"
+      ],
+      [
+        "N1",
+        "N3",
+        "C2",
+        "H2"
+      ],
+      [
+        "C6",
+        "C2",
+        "N1",
+        "H1"
+      ],
+      [
+        "N9",
+        "N7",
+        "C8",
+        "H8"
+      ],
+      [
+        "O5'",
+        "H5'",
+        "C5'",
+        "H5''"
+      ],
+      [
+        "O5'",
+        "H5'",
+        "C5'",
+        "C4'"
+      ],
+      [
+        "C4'",
+        "H5''",
+        "C5'",
+        "O5'"
+      ],
+      [
+        "C4'",
+        "H5'",
+        "C5'",
+        "H5''"
+      ]
+    ]
+  },
+  "geometry_source": "/mnt/d/data/DNA DoS/computation/DNA_adducts_OL21_20261008/build_20261012/projects/dI/models/dI_seed",
+  "geometry_file": "nucleoside.xyz",
+  "alignment_atoms": [
+    "N9",
+    "C4",
+    "C8"
+  ],
+  "topology_files": {
+    "library": "dI.lib",
+    "parameters": "dI.frcmod",
+    "load_file": "leaprc.dI"
+  }
+}

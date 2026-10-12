@@ -1,6 +1,6 @@
 """Sequence -> CHARMM36 job; selected all-atom MD frame -> Gaussian matrix job.
 
-Only canonical DNA, linear strands and 5'-OH/3'-OH termini are supported.
+Linear DNA with canonical or catalogued OL21 modifications and OH termini is supported.
 Open Babel is required only by `build`; other commands use the standard library.
 """
 from __future__ import annotations
@@ -18,12 +18,12 @@ import shutil
 
 HERE = Path(__file__).resolve().parent
 BASES = {"DA", "DC", "DG", "DT"}
-from modified_bases import (RESIDUE_PARENTS, apply_modifications, expected_residues,
-                            snapshot_library, validate_modifications)
+from modified_bases import (RESIDUE_PARENTS, apply_modifications, expected_residues, expected_dna_charge,
+                            library_root, snapshot_library, validate_modifications)
 ENVIRONMENT = {"SOL", "HOH", "WAT", "OPC", "TIP3", "SOD", "CLA", "POT", "NA", "CL", "K", "Na+", "K+", "Cl-"}
 MD_MODELS = ("charmm36_tip3p", "ol21_opc", "ol24_opc")
 AMBER_ENV = "/home/chenz/.local/share/dna-amber/env"
-Z = {"H": 1, "C": 6, "N": 7, "O": 8, "P": 15}
+Z = {"H": 1, "C": 6, "N": 7, "O": 8, "P": 15, "Cl": 17}
 
 
 @dataclass
@@ -66,6 +66,7 @@ def read_pdb(path: Path) -> list[Atom]:
             raise ValueError("Resolve alternate locations/insertion codes before conversion.")
         name = line[12:16].strip()
         element = line[76:78].strip().upper() or name.lstrip("123")[0].upper()
+        element = 'Cl' if element == 'CL' else element
         xyz = tuple(float(line[a:b]) for a, b in [(30, 38), (38, 46), (46, 54)])
         if not all(math.isfinite(x) for x in xyz):
             raise ValueError("Non-finite PDB coordinates.")
@@ -206,9 +207,9 @@ def validate_job_dna(atoms: list[Atom], job: Path, cfg: dict) -> dict:
     groups = residues(atoms)
     if [(g[0].chain, g[0].resid, g[0].residue) for g in groups] != expected:
         raise ValueError("Amber residue sequence does not match the input strands")
-    charge = -sum(len(s)-1 for s in cfg["strands_5to3"])
+    charge = expected_dna_charge(cfg["strands_5to3"], cfg.get("modifications"), library_root(job))
     if not math.isclose(manifest["charge"], charge, abs_tol=1e-5):
-        raise ValueError("Amber DNA charge differs from 5OH/3OH canonical DNA")
+        raise ValueError("Amber DNA charge differs from the configured DNA/modifications")
     cross_bonds = []
     for i, j in manifest["bonds"]:
         a, b = atoms[i], atoms[j]
@@ -220,7 +221,7 @@ def validate_job_dna(atoms: list[Atom], job: Path, cfg: dict) -> dict:
             raise ValueError(f"Bad Amber DNA bond {i+1}-{j+1}: {distance:.3f} A; check PBC")
         if a.resid != b.resid:
             cross_bonds.append(distance)
-    if len(cross_bonds) != -charge:
+    if len(cross_bonds) != sum(len(s)-1 for s in cfg["strands_5to3"]):
         raise ValueError("Amber backbone connectivity differs from input strands")
     return {"atom_count": len(atoms), "nucleotides": len(groups), "strands": cfg["strands_5to3"],
             "charge": charge, "cross_residue_bonds": len(cross_bonds),
@@ -303,7 +304,7 @@ def build(args) -> None:
     atoms = build_atoms(seq, len(strands) == 2)
     if modifications:
         atoms = apply_modifications(atoms, strands, modifications)
-    report = ({"charge": -sum(len(s) - 1 for s in strands), "atom_count": len(atoms),
+    report = ({"charge": expected_dna_charge(strands, modifications), "atom_count": len(atoms),
                "validation": "Ideal heavy-atom seed only; AmberTools topology validation pending"}
               if amber else validate_dna(atoms, strands, ff))
     for value in [args.temperature, args.nvt_ps, args.npt_ps, args.md_ns, args.xtc_ps, args.padding]:

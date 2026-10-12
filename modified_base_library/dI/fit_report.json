@@ -1,0 +1,20 @@
+{
+  "status": "RESP_complete",
+  "group": "modified",
+  "conformers": [
+    "dI_seed"
+  ],
+  "atoms_per_conformer": 30,
+  "total_charge_e": 8.326672684688674e-16,
+  "all_charge_constraints_passed": true,
+  "per_conformer_quality": [
+    {
+      "model": "dI_seed",
+      "RMS_atomic_units": 0.0033056516351719135,
+      "relative_RMS": 0.12903480846662407
+    }
+  ],
+  "pooled_relative_RMS": 0.12903480846662407,
+  "pooled_RMS_atomic_units": 0.0033056516351719135,
+  "MD_topology_ready": false
+}

@@ -1,0 +1,26 @@
+{
+  "status": "RESP_complete",
+  "group": "modified",
+  "conformers": [
+    "oxo8dG_anti",
+    "oxo8dG_syn"
+  ],
+  "atoms_per_conformer": 33,
+  "total_charge_e": -9.999999996401776e-07,
+  "all_charge_constraints_passed": true,
+  "per_conformer_quality": [
+    {
+      "model": "oxo8dG_anti",
+      "RMS_atomic_units": 0.0034374277168042183,
+      "relative_RMS": 0.14376281132161045
+    },
+    {
+      "model": "oxo8dG_syn",
+      "RMS_atomic_units": 0.0029414541653528478,
+      "relative_RMS": 0.10521991669225929
+    }
+  ],
+  "pooled_relative_RMS": 0.12317650857166694,
+  "pooled_RMS_atomic_units": 0.003201535910176742,
+  "MD_topology_ready": false
+}

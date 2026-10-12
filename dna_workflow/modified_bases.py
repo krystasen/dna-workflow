@@ -10,9 +10,6 @@ from pathlib import Path
 import shutil
 
 HERE = Path(__file__).resolve().parent
-LIBRARY_FILES = ('entry.json', 'O6MeG.lib', 'O6MeG.frcmod', 'leaprc.O6MeG',
-                 'parameter_sources.json', 'atom_types.csv', 'nucleoside_charges.csv', 'nucleoside_B.xyz')
-RESIDUE_PARENTS = {'OG6': 'DG', 'OG5': 'DG', 'OG3': 'DG', 'OGN': 'DG'}
 
 
 def library_root(job: Path | None = None) -> Path:
@@ -20,12 +17,23 @@ def library_root(job: Path | None = None) -> Path:
     return local if local.is_dir() else HERE.parent / 'modified_base_library'
 
 
-def available_bases(root: Path | None = None) -> list[dict]:
+def library_entries(root: Path | None = None) -> dict[str, dict]:
     root = root or library_root()
     catalog = json.loads((root / 'catalog.json').read_text(encoding='utf-8'))
+    return {identifier: json.loads((root / row['path']).read_text(encoding='utf-8'))
+            for identifier, row in catalog['entries'].items()}
+
+
+# Canonical job copies have no library snapshot; identity parsing must still import.
+RESIDUE_PARENTS = {prefix + suffix: 'D' + base
+                   for prefix, base in (('OG','G'), ('MC','C'), ('HC','C'), ('LC','C'),
+                                        ('DI','A'), ('MA','A'), ('XG','G'), ('CG','G'))
+                   for suffix in '653N'}
+
+
+def available_bases(root: Path | None = None) -> list[dict]:
     entries = []
-    for identifier, row in catalog['entries'].items():
-        entry = json.loads((root / row['path']).read_text(encoding='utf-8'))
+    for identifier, entry in library_entries(root).items():
         if entry.get('MD_topology_ready'):
             entries.append({'id': identifier, 'name': entry['name'], 'parent_base': entry['parent_base'],
                             'md_models': ['ol21_opc'], 'status': entry['status'],
@@ -63,14 +71,22 @@ def validate_modifications(value, strands: list[str], model: str, root: Path | N
     return checked
 
 
-def residue_code(position: int, length: int) -> str:
-    return 'OGN' if length == 1 else 'OG5' if position == 1 else 'OG3' if position == length else 'OG6'
+def residue_code(position: int, length: int, base: str = 'O6MeG', root: Path | None = None) -> str:
+    suffix = 'N' if length == 1 else '5' if position == 1 else '3' if position == length else '6'
+    return next(row['name'] for row in library_entries(root)[base]['templates'] if row['name'].endswith(suffix))
 
 
 def expected_residues(strands: list[str], modifications: list[dict] | None = None) -> list[tuple[str, int, str]]:
     sites = {(r['chain'], r['position']): r['base'] for r in modifications or []}
-    return [(chr(65+c), i+1, residue_code(i+1, len(s)) if (chr(65+c), i+1) in sites else 'D'+b)
+    return [(chr(65+c), i+1, residue_code(i+1, len(s), sites[(chr(65+c), i+1)]) if (chr(65+c), i+1) in sites else 'D'+b)
             for c, s in enumerate(strands) for i, b in enumerate(s)]
+
+
+def expected_dna_charge(strands: list[str], modifications: list[dict] | None = None, root: Path | None = None) -> int:
+    entries = library_entries(root) if modifications else {}
+    return -sum(len(s)-1 for s in strands) + sum(
+        entries[site['base']].get('chemical_state', {}).get('nucleoside_charge', 0)
+        for site in modifications or [])
 
 
 def normalise_residue(name: str) -> str | None:
@@ -95,7 +111,10 @@ def snapshot_library(job: Path, modifications: list[dict], source: Path | None =
     for identifier in selected:
         folder = destination / identifier
         folder.mkdir()
-        for name in LIBRARY_FILES:
+        entry = library_entries(source)[identifier]
+        for name in ('entry.json', identifier + '.lib', identifier + '.frcmod', 'leaprc.' + identifier,
+                     'parameter_sources.json', 'atom_types.csv', 'nucleoside_charges.csv',
+                     entry.get('geometry_file', 'nucleoside_B.xyz')):
             shutil.copy2(source / identifier / name, folder / name)
 
 
@@ -103,7 +122,7 @@ def load_commands(job: Path, modifications: list[dict]) -> str:
     root = library_root(job)
     lines = []
     for identifier in sorted({row['base'] for row in modifications}):
-        for command, filename in (('loadoff', 'O6MeG.lib'), ('loadamberparams', 'O6MeG.frcmod')):
+        for command, filename in (('loadoff', identifier + '.lib'), ('loadamberparams', identifier + '.frcmod')):
             target = root / identifier / filename
             if not target.is_file():
                 raise FileNotFoundError(target)
@@ -125,28 +144,31 @@ def apply_modifications(atoms, strands: list[str], modifications: list[dict], ro
         length = math.sqrt(dot(a,a))
         if length < 1e-8: raise ValueError('修饰碱基对齐锚点退化。')
         return tuple(x/length for x in a)
-    def axes(coords):
-        x = unit(subtract(coords['C4'], coords['N9']))
-        z = unit(cross(x, subtract(coords['C8'], coords['N9'])))
+    def axes(coords, anchors):
+        x = unit(subtract(coords[anchors[1]], coords[anchors[0]]))
+        z = unit(cross(x, subtract(coords[anchors[2]], coords[anchors[0]])))
         return x, cross(z,x), z
+    entries = library_entries(root)
     for site in modifications:
         folder = root / site['base']
+        entry = entries[site['base']]
+        anchors = entry.get('alignment_atoms', ['N9', 'C4', 'C8'])
         with (folder / 'nucleoside_charges.csv').open(newline='', encoding='utf-8') as handle:
             rows = list(csv.DictReader(handle))
-        coords = [tuple(map(float, line.split()[1:])) for line in (folder / 'nucleoside_B.xyz').read_text().splitlines()[2:]]
+        coords = [tuple(map(float, line.split()[1:])) for line in (folder / entry.get('geometry_file', 'nucleoside_B.xyz')).read_text().splitlines()[2:]]
         if len(rows) != len(coords): raise ValueError('非标准碱基库的原子映射与几何不一致。')
         source = {row['name']: point for row,point in zip(rows,coords)}
         base = [row for row in rows if not row['role'].startswith('fixed')]
-        base_names = {row['name'] for row in base} | {'H1'}
+        backbone_names = {row['name'] for row in rows if row['role'].startswith('fixed')} | {'P', 'OP1', 'OP2', 'O1P', 'O2P'}
         target = [a for a in result if a.chain == site['chain'] and a.resid == site['position']]
         target_coords = {a.name: a.xyz for a in target}
-        a_axes, b_axes = axes(source), axes(target_coords)
-        code = residue_code(site['position'], len(strands[ord(site['chain'])-65]))
-        replacement = [replace(a, residue=code) for a in target if a.name not in base_names]
+        a_axes, b_axes = axes(source, anchors), axes(target_coords, anchors)
+        code = residue_code(site['position'], len(strands[ord(site['chain'])-65]), site['base'], root)
+        replacement = [replace(a, residue=code) for a in target if a.name in backbone_names]
         for row in base:
-            local = subtract(source[row['name']], source['N9'])
+            local = subtract(source[row['name']], source[anchors[0]])
             components = [dot(local, axis) for axis in a_axes]
-            point = tuple(target_coords['N9'][k]+sum(c*axis[k] for c,axis in zip(components,b_axes)) for k in range(3))
+            point = tuple(target_coords[anchors[0]][k]+sum(c*axis[k] for c,axis in zip(components,b_axes)) for k in range(3))
             replacement.append(replace(target[0], name=row['name'], element=row['element'], xyz=point, residue=code))
         result = [a for a in result if not (a.chain == site['chain'] and a.resid == site['position'])]
         # Preserve residue order; all replacement atoms stay within their site.

@@ -17,7 +17,7 @@ import dna_dos_v2 as w
 import plot_dna_dos_v2 as plot
 
 
-def synthetic_gaussian_source(root: Path, single=False):
+def synthetic_gaussian_source(root: Path, single=False, modified_residue=None, chlorine=False):
     """A labelled algebra/IO fixture, not a physical DNA electronic structure."""
     root.mkdir()
     rows, atoms = [], []
@@ -29,10 +29,13 @@ def synthetic_gaussian_source(root: Path, single=False):
         for position, part in enumerate(parts, 1):
             base = ("GA", "TC")[strand][position - 1]
             for name, element, x, y in part:
+                if chlorine and strand==0 and position==1 and name=="C5'":
+                    name,element='CL5','Cl'
                 serial = len(atoms) + 1
                 xyz = np.asarray([x if strand == 0 else 5.5 - x, y + strand * 15., 0.])
                 atoms.append((element, xyz))
-                rows.append([serial, serial, chain, position, "D" + base, name,
+                residue=modified_residue if modified_residue and strand==0 and position==1 else "D"+base
+                rows.append([serial, serial, chain, position, residue, name,
                              "" if single else position if strand == 0 else 3 - position])
     fields = ["gaussian_atom_1based", "source_pdb_serial", "chain", "nucleotide_1based", "resname", "atom_name", "bp_1based"]
     with (root / "atom_mapping.csv").open("w", newline="", encoding="utf-8") as handle:
@@ -91,6 +94,19 @@ def synthetic_gaussian_source(root: Path, single=False):
 
 
 class DnaDosTest(unittest.TestCase):
+    def test_registered_modified_residues_and_chlorine_are_preserved(self):
+        self.assertEqual(plot.reference.VDW_A['Cl'],1.75)
+        for residue in ('MC6','HC6','LC6','DI6','MA6','XG6','CG6','OG6'):
+            with self.subTest(residue=residue), tempfile.TemporaryDirectory() as tmp:
+                root=Path(tmp)
+                synthetic_gaussian_source(root/'source',single=True,modified_residue=residue,chlorine=residue=='LC6')
+                report=w.inspect_source(root/'source',root/'inspection')
+                partition=w.read_json(root/'inspection/partitions.json')
+                item=partition['nucleotides'][0]
+                self.assertEqual(item['residue_name'],residue)
+                self.assertTrue(item['name'].endswith(residue))
+                self.assertEqual(report['state_count'],40)
+
     def test_full_portable_roundtrip_resume_and_rejection(self):
         torch.set_num_threads(1)
         with tempfile.TemporaryDirectory(prefix="dna_dos_v2_test_") as tmp:

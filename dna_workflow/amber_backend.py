@@ -26,7 +26,7 @@ DEFAULT_PYTHON = AMBER_ENV + "/bin/python"
 AMBER_MODELS = {"ol21_opc": "OL21", "ol24_opc": "OL24"}
 DNA_BASES = {"A", "C", "G", "T"}
 ION_NAMES = {"NA", "NA+", "SOD", "K", "K+", "POT", "CL", "CL-", "CLA"}
-ELEMENTS = {0: "", 1: "H", 6: "C", 7: "N", 8: "O", 15: "P"}
+ELEMENTS = {0: "", 1: "H", 6: "C", 7: "N", 8: "O", 15: "P", 17: "Cl"}
 
 
 class AmberBackendError(RuntimeError):

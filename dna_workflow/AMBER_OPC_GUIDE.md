@@ -26,7 +26,15 @@ status: validation-in-progress
 5. 轨迹处理、VMD 主导构型选择继续沿用原入口。主导构型再溶剂化继承父任务的 DNA 模型、OPC 和离子模型，再生成独立 EM 子任务。
 6. EM 回传后去水去离子，按 DNA manifest 验证原子身份与顺序，再输出 Gaussian 输入。
 
-支持标准 A/C/G/T 单链或双链；现新增 O6MeG 修饰入口，当前仅兼容 OL21 + OPC。其他氧化/甲基化碱基尚未入库，不能用标准 G 代替未支持的修饰。
+支持标准 A/C/G/T 单链或双链，以及O6MeG、5-mC、5-hmC、5-ClC、dI、N6-MeA、8-oxoG和O6-CM八种已登记修饰。修饰入口当前仅兼容OL21 + OPC；不得把修饰改名标准碱基绕过拓扑。
+
+## 七种新修饰（2026-10-12）
+
+在“非标准碱基”选择类型、链和5′计数位置；C类修饰必须选C位点，dI/N6-MeA选A位点，8-oxoG/O6-CM选G位点。序列仍输入母体A/C/G/T，配对链不自动改动。具体库及验证边界见[[05 Code/modified_base_library/README|非标准DNA拓扑库]]。
+
+O6-CM按羧酸根核苷−1e处理，DNA内部残基−2e。27bp双链含一个该位点时总电荷为−53而非−52；工作台的中和离子和Gaussian输入自动使用该电荷。5-ClC保留Cl元素。新任务会保存对应参数库副本，不改写已建任务的快照。
+
+新增七种均完成真实RESP、四模板及技术验证；八种共16个单双链API→WSL测试完成建模、拓扑、OPC、EM TPR、Gaussian输入。未运行新的100ns生产MD或Gaussian单点；正常dA的QM/RESP对照按用户决定留待后续，dI/N6-MeA元数据保留该限制。
 
 ## O6MeG 修饰入口
 

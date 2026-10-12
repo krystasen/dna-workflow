@@ -10,9 +10,76 @@ import dna_workflow as wf
 import gui_server as gui
 import md_pipeline as md
 import modified_bases as mods
+import amber_backend as amber
 
 
 class ModifiedBaseTests(unittest.TestCase):
+    def test_canonical_job_copy_imports_without_database(self):
+        import subprocess
+        import sys
+        import shutil
+        with tempfile.TemporaryDirectory() as tmp:
+            shutil.copy2(mods.__file__,Path(tmp)/'modified_bases.py')
+            result=subprocess.run([sys.executable,'-c',
+                "import modified_bases as m; assert m.expected_dna_charge(['AGC']) == -2; assert m.expected_residues(['AGC'])[1][2] == 'DG'"],
+                cwd=tmp,capture_output=True,text=True)
+            self.assertEqual(result.returncode,0,result.stderr)
+
+    def test_all_catalog_entries_build_and_snapshot(self):
+        self.assertEqual(set(mods.library_entries()), {'O6MeG','m5dC','hm5dC','Cl5dC','dI','m6dA','oxo8dG','O6CMdG'})
+        for identifier, entry in mods.library_entries().items():
+            with self.subTest(base=identifier), tempfile.TemporaryDirectory() as tmp:
+                strand = 'A' + entry['parent_base'] + 'C'
+                site = {'chain':'A','position':2,'base':identifier}
+                self.assertEqual(mods.validate_modifications([site],[strand],'ol21_opc'),[site])
+                atoms = mods.apply_modifications(wf.build_atoms(strand,False),[strand],[site])
+                code = mods.residue_code(2,3,identifier)
+                target = [a for a in atoms if a.resid==2]
+                self.assertEqual({a.residue for a in target},{code})
+                self.assertEqual(len(target),len({a.name for a in target}))
+                self.assertEqual(mods.normalise_residue(code),code)
+                if identifier=='dI': self.assertNotIn('N6',{a.name for a in target})
+                if identifier=='oxo8dG': self.assertNotIn('H8',{a.name for a in target})
+                if identifier=='Cl5dC': self.assertEqual(next(a.element for a in target if a.name=='CL5'),'Cl')
+                for position,length,suffix in ((1,3,'5'),(3,3,'3'),(1,1,'N')):
+                    self.assertTrue(mods.residue_code(position,length,identifier).endswith(suffix))
+                job=Path(tmp)
+                mods.snapshot_library(job,[site])
+                self.assertTrue((job/'modified_base_library'/identifier/(identifier+'.lib')).is_file())
+                self.assertIn(identifier+'.frcmod',mods.load_commands(job,[site]))
+                self.assertEqual([row['id'] for row in mods.available_bases(mods.library_root(job))],[identifier])
+
+    def test_carboxylate_charge_is_not_backbone_bond_count(self):
+        site={'chain':'A','position':2,'base':'O6CMdG'}
+        self.assertEqual(mods.expected_dna_charge(['AGC'],[site]),-3)
+        self.assertEqual(mods.expected_dna_charge(['G'],[site|{'position':1}]),-1)
+        self.assertEqual(amber._ion_plan(-3.,'K+'),('K+',3))
+        atoms=[wf.Atom(1,"O3'",'DA','A',1,(0.,0.,0.),'O'),
+               wf.Atom(2,'P','CG6','A',2,(1.6,0.,0.),'P'),
+               wf.Atom(3,"O3'",'CG6','A',2,(3.2,0.,0.),'O'),
+               wf.Atom(4,'P','DC','A',3,(4.8,0.,0.),'P')]
+        cfg={'md_model':'ol21_opc','strands_5to3':['AGC'],'modifications':[site]}
+        with tempfile.TemporaryDirectory() as tmp:
+            from dataclasses import asdict
+            job=Path(tmp)
+            manifest={'md_model':'ol21_opc','charge':-3,'atoms':[asdict(a) for a in atoms],'bonds':[[0,1],[2,3]]}
+            wf.save_json(job/'dna_manifest.json',manifest)
+            checked=wf.validate_job_dna(atoms,job,cfg)
+            self.assertEqual((checked['charge'],checked['cross_residue_bonds']),(-3,2))
+            wf.save_json(job/'dna_manifest.json',manifest|{'charge':-2})
+            with self.assertRaisesRegex(ValueError,'charge'):
+                wf.validate_job_dna(atoms,job,cfg)
+
+    def test_chlorine_PDB_roundtrip_and_atomic_number(self):
+        from types import SimpleNamespace
+        self.assertEqual(amber._atom_element(SimpleNamespace(name='CL5',atomic_number=17)),'Cl')
+        atom=wf.Atom(1,'CL5','LC6','A',2,(0.,0.,0.),'Cl')
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/'chlorinated.pdb'
+            path.write_text(wf.pdb_text([atom]),encoding='ascii')
+            self.assertEqual(wf.read_pdb(path),[atom])
+        self.assertEqual(wf.Z['Cl'],17)
+
     def test_database_and_valid_sites(self):
         self.assertIn('O6MeG', [r['id'] for r in mods.available_bases()])
         site={'chain':'A','position':2,'base':'O6MeG'}

@@ -1,0 +1,27 @@
+Modified DNA local source-traceable parameter patch
+MASS
+
+
+BOND
+CB-NA              414.000000 1.391000  /mnt/d/data/DNA DoS/computation/DNA_adducts_OL21_20261008/build_20261012/completion/reference_8OG.frcmod:published Manchester/Bryce 8OG local term; OL21 scaffold and new RESP retained
+CK-NA              529.000000 1.304000  /mnt/d/data/DNA DoS/computation/DNA_adducts_OL21_20261008/build_20261012/completion/reference_8OG.frcmod:published Manchester/Bryce 8OG local term; OL21 scaffold and new RESP retained
+CK-O               570.000000 1.229000  /mnt/d/data/DNA DoS/computation/DNA_adducts_OL21_20261008/build_20261012/completion/reference_8OG.frcmod:published Manchester/Bryce 8OG local term; OL21 scaffold and new RESP retained
+
+ANGLE
+C-CB-NA            70.000000 130.000000  /mnt/d/data/DNA DoS/computation/DNA_adducts_OL21_20261008/build_20261012/completion/reference_8OG.frcmod:published Manchester/Bryce 8OG local term; OL21 scaffold and new RESP retained
+CB-CB-NA           70.000000 111.300000  /mnt/d/data/DNA DoS/computation/DNA_adducts_OL21_20261008/build_20261012/completion/reference_8OG.frcmod:published Manchester/Bryce 8OG local term; OL21 scaffold and new RESP retained
+CB-NA-CK           70.000000 103.800000  /mnt/d/data/DNA DoS/computation/DNA_adducts_OL21_20261008/build_20261012/completion/reference_8OG.frcmod:published Manchester/Bryce 8OG local term; OL21 scaffold and new RESP retained
+CB-NA-H            30.000000 120.000000  /mnt/d/data/DNA DoS/computation/DNA_adducts_OL21_20261008/build_20261012/completion/reference_8OG.frcmod:published Manchester/Bryce 8OG local term; OL21 scaffold and new RESP retained
+CK-NA-H            30.000000 120.000000  /mnt/d/data/DNA DoS/computation/DNA_adducts_OL21_20261008/build_20261012/completion/reference_8OG.frcmod:published Manchester/Bryce 8OG local term; OL21 scaffold and new RESP retained
+N*-CK-NA           70.000000 115.400000  /mnt/d/data/DNA DoS/computation/DNA_adducts_OL21_20261008/build_20261012/completion/reference_8OG.frcmod:published Manchester/Bryce 8OG local term; OL21 scaffold and new RESP retained
+N*-CK-O            80.000000 120.900000  /mnt/d/data/DNA DoS/computation/DNA_adducts_OL21_20261008/build_20261012/completion/reference_8OG.frcmod:published Manchester/Bryce 8OG local term; OL21 scaffold and new RESP retained
+NA-CK-O            80.000000 120.600000  /mnt/d/data/DNA DoS/computation/DNA_adducts_OL21_20261008/build_20261012/completion/reference_8OG.frcmod:published Manchester/Bryce 8OG local term; OL21 scaffold and new RESP retained
+
+DIHE
+X-CB-NA-X          1 1.500000 180.000000 2.000000  /mnt/d/data/DNA DoS/computation/DNA_adducts_OL21_20261008/build_20261012/completion/reference_8OG.frcmod:published Manchester/Bryce 8OG local term; OL21 scaffold and new RESP retained
+X-CK-NA-X          1 1.400000 180.000000 2.000000  /mnt/d/data/DNA DoS/computation/DNA_adducts_OL21_20261008/build_20261012/completion/reference_8OG.frcmod:published Manchester/Bryce 8OG local term; OL21 scaffold and new RESP retained
+
+IMPROPER
+NA-N*-CK-O         10.500000 180.000000 2.000000  /mnt/d/data/DNA DoS/computation/DNA_adducts_OL21_20261008/build_20261012/completion/reference_8OG.frcmod:published Manchester/Bryce 8OG local term; OL21 scaffold and new RESP retained
+
+NONBON

@@ -1,6 +1,6 @@
 ---
 title: Modified DNA Base RESP Library
-date: 2026-10-05
+date: 2026-10-12
 tags:
   - modified-DNA
   - AMBER
@@ -14,13 +14,26 @@ related:
 
 # 非标准 DNA 碱基 RESP 与 MD 拓扑库
 
-当前已有的真实条目是 **O6MeG**。在已完成的AmberTools RESP电荷基础上，现已补齐OL21兼容的残基模板、局部类比参数及技术验证，并接入工作台GUI修饰入口。没有追加QM扫描或超算提交脚本。其他修饰完成各自电荷和拓扑构建后再加入`catalog.json`，不预填虚构参数。
+当前有 **O6MeG及七种新修饰**。新条目使用已回传的真实Gaussian HF/MK结果进行受约束RESP拟合，继承各自OL21糖/磷酸主干，配合有来源的局部参数。八种条目均已接入工作台修饰入口，包含内部、5′OH、3′OH和孤立核苷四种模板。没有追加QM扫描或超算提交脚本。
 
 ## 当前条目
 
 | 修饰 | 电荷来源 | 主干来源 | 状态 |
 |---|---|---|---|
 | O6MeG，O⁶-甲基鸟嘌呤 | 两个已计算构象共同进行两阶段 AmberTools RESP | AMBER DNA OL21 DG/DG5/DG3/DGN | 四种MD模板完成，技术验证通过；类比参数初版 |
+| m5dC，5-甲基胞嘧啶 | 实际HF/MK与两阶段RESP | OL21 DC系列 | MC6/MC5/MC3/MCN |
+| hm5dC，5-羟甲基胞嘧啶 | 两个构象共同RESP | OL21 DC系列 | HC6/HC5/HC3/HCN |
+| Cl5dC，5-氯胞嘧啶 | 实际HF/MK与两阶段RESP | OL21 DC系列 | LC6/LC5/LC3/LCN；保留Cl元素 |
+| dI，脱氧肌苷 | 实际HF/MK与两阶段RESP | OL21 DA系列 | DI6/DI5/DI3/DIN |
+| m6dA，N6-甲基腺嘌呤 | 两个构象共同RESP | OL21 DA系列 | MA6/MA5/MA3/MAN |
+| oxo8dG，8-氧代鸟嘌呤 | anti/syn共同RESP | OL21 DG系列及公开8OG局部参数 | XG6/XG5/XG3/XGN |
+| O6CMdG，O6-羧甲基鸟嘌呤 | 两个构象共同RESP，核苷净电荷−1 | OL21 DG系列 | CG6/CG5/CG3/CGN；内部残基−2e |
+
+新条目均通过真实坐标端基/连接、电荷、27bp双链拓扑、短EM、糖手性、OPC和AMBER/GROMACS同构型能量检查。模板坐标选一个合格构象；不同构象的ESP共同拟合一套共享电荷，并非分别作为数据库条目。
+
+正常dA的QM/RESP对照尚未完成，按用户决定留待后续补齐；dI、m6dA条目已明确记录该限制。`MD_topology_ready=true`仅表示技术可运行，所有条目的`production_MD_approved=false`，不能据此宣称长期构象或实验精度已验证。
+
+工作台按`entry.json`的母体、四模板、对齐锚点和几何文件建模，任务中保存所用库副本。O6-CM的额外−1e参与DNA电荷、离子中和及Gaussian输入，不能再将总电荷等同于磷酸骨架连接数。5′磷酸化、交联及自由基仍不支持。
 
 入口是 `catalog.json`；具体记录在 `O6MeG/entry.json`。JSON 中保留化学身份、命名、键连接、拟合方法、构象来源、误差、源结果路径及适用范围。
 

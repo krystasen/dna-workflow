@@ -1,0 +1,18 @@
+Modified DNA local source-traceable parameter patch
+MASS
+
+
+BOND
+CA-H5              367.000000 1.080000  parm10.dat:aromatic C-H bond with inherited H5 LJ
+
+ANGLE
+H5-CA-NA           49.120000 115.990000  gaff2.dat:hypoxanthine C2-H next to N1-H
+H5-CA-NC           48.890000 125.290000  gaff2.dat:hypoxanthine C2-H next to pyridine N3
+
+DIHE
+
+
+IMPROPER
+
+
+NONBON

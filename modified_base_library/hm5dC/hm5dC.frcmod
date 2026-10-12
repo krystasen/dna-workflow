@@ -1,0 +1,18 @@
+Modified DNA local source-traceable parameter patch
+MASS
+
+
+BOND
+
+
+ANGLE
+CA-C1-CT           70.000000 119.700000  parm10.dat:C5 substituted pyrimidine angle; retain OL21 C1 ring type
+C1-CT-OH           77.240000 111.180000  gaff2.dat:conjugated ring-CH2-OH alcohol geometry
+
+DIHE
+
+
+IMPROPER
+CA-C1-C1-CT        1.100000 180.000000 2.000000  ff-nucleic-OL21.frcmod:C5 sp2 planarity after H5 replacement; native substituted-pyrimidine analogy
+
+NONBON
