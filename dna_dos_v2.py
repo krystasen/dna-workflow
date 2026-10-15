@@ -355,9 +355,12 @@ def probe_candidates(partition: dict, onsite: np.ndarray, hamiltonian: np.ndarra
     for boundary in partition["boundaries"]:
         current, previous = (v2.partition_indices(by_name[boundary[key]]) for key in ("current", "previous"))
         strengths = np.linalg.norm(hamiltonian[np.ix_(current, previous)], axis=1)
-        in_window = (onsite[current] >= parameters["spurious_min_eV"]) & (onsite[current] <= parameters["spurious_max_eV"])
-        # Show strongest states outside the old window too, so a new sequence can be reviewed.
-        candidates = sorted(set(np.argsort(strengths)[-3:].tolist()) | set(np.flatnonzero(in_window).tolist()),
+        energies = onsite[current]
+        distance = np.maximum(np.maximum(parameters["spurious_min_eV"] - energies,
+                                         energies - parameters["spurious_max_eV"]), 0.0)
+        in_window = distance == 0.0
+        # Deep core orbitals dominate full-space coupling; show the nearest energies instead.
+        candidates = sorted(set(np.argsort(distance, kind="stable")[:6].tolist()) | set(np.flatnonzero(in_window).tolist()),
                             key=lambda index: strengths[index], reverse=True)
         for local in candidates:
             rows.append({"nucleotide": boundary["current"], "local_index_1based": int(local + 1),
@@ -406,7 +409,12 @@ def prepare_material(data: Path, overrides: Path | None = None) -> dict:
         if prepared["run_id"] != manifest["run_id"] or prepared["parameters"] != manifest["parameters"]:
             raise ValueError("Prepared data does not match this package; use a fresh package directory.")
         if overrides is not None:
-            raise ValueError("Preparation is already complete. Changed probe choices require a new run/package.")
+            selected = read_json(overrides)
+            partition = read_json(data / "gaussian_partitions.json")
+            recorded = {entry["name"]: entry["exclude_probe_local"][0]
+                        for entry in partition["nucleotides"] if entry.get("exclude_probe_local")}
+            if selected != recorded or any(type(value) is not int for value in selected.values()):
+                raise ValueError("Preparation is already complete. Changed probe choices require a new run/package.")
         print("Prepared material already complete.", flush=True)
         return prepared
     started = time.perf_counter()
@@ -899,7 +907,8 @@ Löwdin 随机向量残差、局域化不变量及 contact projector 验证均�
 
 ## 3. 检查 probe 候选
 
-`probe_candidates.csv` 列出每个 O-P 边界附近的强耦合候选；`spurious_states.csv` 记录实际选中的局域编号。
+`probe_candidates.csv` 列出能窗内全部候选和距能窗最近的6个态，并报告各自的跨边界耦合；
+窗外近邻只用于人工核查，不会自动被选中。`spurious_states.csv` 记录实际选中的局域编号。
 候选数取决于实际分区，本包预计 {manifest['source']['expected_boundary_candidates']} 个边界，不能照搬 GGCC 的 30 个编号。
 默认遵循 V2 能窗内最大前块耦合规则（{p['spurious_min_eV']} 至 {p['spurious_max_eV']} eV）。
 排除仅作用于 probe；所有 Hamiltonian 态仍保留。
@@ -913,6 +922,7 @@ python dna_dos_v2.py prepare --data . --probe-overrides reviewed_probe_indices.j
 ```
 
 该 JSON 必须覆盖所有边界，不能包含链首无前置边界的 nucleotide。
+重复使用相同的人工选择会复用已完成的预处理，不会重新分解矩阵。
 已完成预处理或开始扫描后，改变 probe/contact/展宽需另建计算包，不能混用旧点文件。
 
 ## 4. 单点显存与速度测试

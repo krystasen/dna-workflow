@@ -110,7 +110,7 @@ def gaussian_geometry(path: Path) -> tuple[list[str], np.ndarray]:
         fields = line.split()
         if len(fields) < 4:
             break
-        elements.append(fields[0].upper())
+        elements.append(fields[0].title())
         coordinates.append([float(value) for value in fields[1:4]])
     if any(element not in VDW_A for element in elements):
         raise ValueError("Unsupported element in Gaussian geometry.")

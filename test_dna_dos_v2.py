@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import gc
 import json
 from pathlib import Path
 import shutil
@@ -17,7 +18,7 @@ import dna_dos_v2 as w
 import plot_dna_dos_v2 as plot
 
 
-def synthetic_gaussian_source(root: Path, single=False, modified_residue=None, chlorine=False):
+def synthetic_gaussian_source(root: Path, single=False, modified_residue=None, chlorine=False, modified_position=1):
     """A labelled algebra/IO fixture, not a physical DNA electronic structure."""
     root.mkdir()
     rows, atoms = [], []
@@ -29,12 +30,12 @@ def synthetic_gaussian_source(root: Path, single=False, modified_residue=None, c
         for position, part in enumerate(parts, 1):
             base = ("GA", "TC")[strand][position - 1]
             for name, element, x, y in part:
-                if chlorine and strand==0 and position==1 and name=="C5'":
+                if chlorine and strand==0 and position==modified_position and name=="C5'":
                     name,element='CL5','Cl'
                 serial = len(atoms) + 1
                 xyz = np.asarray([x if strand == 0 else 5.5 - x, y + strand * 15., 0.])
                 atoms.append((element, xyz))
-                residue=modified_residue if modified_residue and strand==0 and position==1 else "D"+base
+                residue=modified_residue if modified_residue and strand==0 and position==modified_position else "D"+base
                 rows.append([serial, serial, chain, position, residue, name,
                              "" if single else position if strand == 0 else 3 - position])
     fields = ["gaussian_atom_1based", "source_pdb_serial", "chain", "nucleotide_1based", "resname", "atom_name", "bp_1based"]
@@ -94,18 +95,88 @@ def synthetic_gaussian_source(root: Path, single=False, modified_residue=None, c
 
 
 class DnaDosTest(unittest.TestCase):
+    def test_empty_probe_window_keeps_nearest_states_and_resumes_with_review(self):
+        torch.set_num_threads(1)
+        partition = {'nucleotides': [{'name': 's1_01_G', 'ao_ranges': [[1, 2]]},
+                                    {'name': 's1_02_A', 'ao_ranges': [[3, 10]]}],
+                     'boundaries': [{'previous': 's1_01_G', 'current': 's1_02_A'}]}
+        onsite = np.asarray([0., 0., -2100., -179., -8., -7., -6.08, -5.5, -1., 5.])
+        h = np.zeros((10, 10))
+        h[2, 0], h[3, 0], h[6, 0] = 15., 13., 1.8
+        rows = w.probe_candidates(partition, onsite, h, w.DEFAULTS)
+        self.assertIn(5, [row['local_index_1based'] for row in rows])
+        self.assertFalse(any(row['onsite_eV'] < -100. for row in rows))
+        self.assertFalse(any(row['in_v2_window'] for row in rows))
+        with tempfile.TemporaryDirectory(prefix='dna_dos_probe_resume_') as tmp:
+            root = Path(tmp)
+            synthetic_gaussian_source(root/'source', single=True)
+            w.inspect_source(root/'source', root/'inspection')
+            package = root/'package'
+            w.export_package(root/'inspection', package, w.DEFAULTS | {'spurious_min_eV': -5.87})
+            with self.assertRaisesRegex(ValueError, r'No dangling-bond candidate in s1_02_A.*Nearest states: local=20'):
+                w.prepare_material(package)
+            gc.collect()
+            self.assertFalse((package/'metadata.json').exists())
+            retained = [package/'hamiltonian_eV.npy', package/'_prepare_work/local_vectors.npz',
+                        package/'_prepare_work/matrix_validation.json']
+            before = [path.stat().st_mtime_ns for path in retained]
+            review = root/'reviewed_probe_indices.json'
+            w.save_json(review, {'s1_02_A': 20})
+            metadata = w.prepare_material(package, review)
+            self.assertEqual([path.stat().st_mtime_ns for path in retained], before)
+            self.assertEqual(metadata['excluded_probe_state_count'], 1)
+            self.assertEqual(metadata['probe_identification'], 'reviewed explicit indices')
+            self.assertEqual(metadata['parameters']['spurious_min_eV'], -5.87)
+            self.assertEqual(w.prepare_material(package, review), metadata)
+            self.assertEqual([path.stat().st_mtime_ns for path in retained], before)
+            w.save_json(review, {'s1_02_A': 19})
+            with self.assertRaisesRegex(ValueError, 'Changed probe choices'):
+                w.prepare_material(package, review)
+
     def test_registered_modified_residues_and_chlorine_are_preserved(self):
+        torch.set_num_threads(1)
         self.assertEqual(plot.reference.VDW_A['Cl'],1.75)
-        for residue in ('MC6','HC6','LC6','DI6','MA6','XG6','CG6','OG6'):
-            with self.subTest(residue=residue), tempfile.TemporaryDirectory() as tmp:
-                root=Path(tmp)
-                synthetic_gaussian_source(root/'source',single=True,modified_residue=residue,chlorine=residue=='LC6')
-                report=w.inspect_source(root/'source',root/'inspection')
-                partition=w.read_json(root/'inspection/partitions.json')
-                item=partition['nucleotides'][0]
-                self.assertEqual(item['residue_name'],residue)
-                self.assertTrue(item['name'].endswith(residue))
-                self.assertEqual(report['state_count'],40)
+        library = Path(__file__).resolve().parent / 'modified_base_library'
+        catalog = w.read_json(library / 'catalog.json')
+        registered = {}
+        for identifier, row in catalog['entries'].items():
+            entry = w.read_json(library / row['path'])
+            for template in entry['templates']:
+                registered[template['name']] = (entry['parent_base'], identifier == 'Cl5dC')
+        self.assertEqual({name: parent for name, (parent, _) in registered.items()}, w.MODIFIED_BASES)
+        parameters = w.DEFAULTS | {'energy_max_eV': -5.976, 'energy_step_eV': .004, 'temperature_K': 10.}
+        for residue, (parent, chlorine) in registered.items():
+            for single in (True, False):
+                with self.subTest(residue=residue, single=single), tempfile.TemporaryDirectory() as tmp:
+                    root = Path(tmp)
+                    # All codes occur at an O-P boundary in this algebra/IO fixture.
+                    synthetic_gaussian_source(root/'source', single=single, modified_residue=residue,
+                                              chlorine=chlorine, modified_position=2)
+                    report = w.inspect_source(root/'source', root/'inspection')
+                    partition = w.read_json(root/'inspection/partitions.json')
+                    item = partition['nucleotides'][1]
+                    self.assertEqual(item['residue_name'], residue)
+                    self.assertEqual(item['base'], parent)
+                    self.assertEqual(item['name'], f's1_02_{residue}')
+                    self.assertEqual(report['state_count'], 40 if single else 80)
+                    atoms = w.v2.load_geometry(root/'source/dna.gjf')
+                    self.assertEqual('Cl' in [element for element, _ in atoms], chlorine)
+                    package = root/'package'
+                    w.export_package(root/'inspection', package, parameters)
+                    self.assertEqual((package/'spurious30_v2.py').read_bytes(),
+                                     (w.HERE/'spurious30_v2.py').read_bytes())
+                    metadata = w.prepare_material(package)
+                    self.assertEqual(metadata['excluded_probe_state_count'], 1 if single else 2)
+                    prepared = w.read_json(package/'gaussian_partitions.json')['nucleotides'][1]
+                    self.assertEqual(prepared['residue_name'], residue)
+                    self.assertEqual(len(prepared['exclude_probe_local']), 1)
+                    results = package/'results_c64'
+                    w.run_gpu(argparse.Namespace(data=package, output=results, device='cpu', dtype='complex64',
+                                                rhs_chunk=7, start=0, stop=None, indices=None, resume=True))
+                    self.assertTrue(w.merge_results(results)['complete'])
+                    data = plot.calculate(results, gateway=-5.988, temperature=10.)
+                    self.assertTrue(np.all(np.isfinite(data['cumulative'])))
+                    self.assertGreater(np.min(data['volumes']), 0.)
 
     def test_full_portable_roundtrip_resume_and_rejection(self):
         torch.set_num_threads(1)
