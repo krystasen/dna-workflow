@@ -1,4 +1,4 @@
-"""Portable, full-space Gaussian DNA DoS workflow using the GGCC V2 mathematics.
+"""Portable, full-space Gaussian/ORCA DNA DoS using the GGCC V2 mathematics.
 
 Local: inspect/export. Compute node: prepare (float64), run (CUDA), merge.
 Local again: verify/plot. No Gaussian executable is needed after export.
@@ -26,6 +26,7 @@ import spurious30_v2 as v2
 
 HERE = Path(__file__).resolve().parent
 PROTOCOL = "dna-gaussian-full-dos-v2"
+ORCA_PROTOCOL = "dna-orca-full-dos-v2"
 DEFAULTS = {
     "energy_min_eV": -6.0, "energy_max_eV": 0.0, "energy_step_eV": 0.005,
     "eta_eV": 0.012, "dos_bin_width_eV": 0.024,
@@ -107,8 +108,13 @@ def energy_grid(parameters: dict) -> np.ndarray:
     return np.linspace(parameters["energy_min_eV"], parameters["energy_max_eV"], round(width / step) + 1)
 
 
-def make_partition(header: dict, mapping: Path, geometry: Path, pdb: Path) -> dict:
-    atoms = gaussian.gaussian_geometry(geometry)
+def result_filenames(metadata: dict) -> tuple[str, str]:
+    return ("dna.inp", "orca_partitions.json") if metadata["protocol"] == ORCA_PROTOCOL else ("dna.gjf", "gaussian_partitions.json")
+
+
+def make_partition(header: dict, mapping: Path, geometry: Path, pdb: Path,
+                   atom_index_key="gaussian_atom_1based", atoms=None) -> dict:
+    atoms = gaussian.gaussian_geometry(geometry) if atoms is None else atoms
     n, nat = int(header["n_basis"]), int(header["n_atoms"])
     if len(atoms) != nat or any(element not in ELEMENTS.values() for element, _ in atoms):
         raise ValueError("Geometry must contain exactly the MAT DNA atoms (H/C/N/O/P/Cl).")
@@ -119,8 +125,8 @@ def make_partition(header: dict, mapping: Path, geometry: Path, pdb: Path) -> di
     if coordinate_error > 1e-6:
         raise ValueError(f"Geometry/MAT coordinates differ by {coordinate_error:.3g} A; use matching final geometry.")
     with mapping.open(encoding="utf-8-sig", newline="") as handle:
-        rows = sorted(csv.DictReader(handle), key=lambda row: int(row["gaussian_atom_1based"]))
-    if [int(row["gaussian_atom_1based"]) for row in rows] != list(range(1, nat + 1)):
+        rows = sorted(csv.DictReader(handle), key=lambda row: int(row[atom_index_key]))
+    if [int(row[atom_index_key]) for row in rows] != list(range(1, nat + 1)):
         raise ValueError("Atom mapping must cover every MAT atom exactly once.")
     pdb_rows = [line for line in pdb.read_text(encoding="utf-8").splitlines() if line.startswith(("ATOM  ", "HETATM"))]
     if len(pdb_rows) != nat:
@@ -129,7 +135,7 @@ def make_partition(header: dict, mapping: Path, geometry: Path, pdb: Path) -> di
         identity = (line[12:16].strip(), line[17:20].strip(), line[21:22], int(line[22:26]))
         expected = (row["atom_name"], row["resname"], row["chain"], int(row["nucleotide_1based"]))
         if identity != expected or not np.allclose([float(line[30:38]), float(line[38:46]), float(line[46:54])], point, atol=0.00051, rtol=0):
-            raise ValueError(f"PDB/mapping/geometry mismatch at Gaussian atom {row['gaussian_atom_1based']}.")
+            raise ValueError(f"PDB/mapping/geometry mismatch at atom {row[atom_index_key]}.")
     ao_atoms = np.asarray(header["ao_to_atom_1based"], dtype=np.int64)
     if ao_atoms.shape != (n,) or np.any((ao_atoms < 1) | (ao_atoms > nat)):
         raise ValueError("Invalid MAT AO-to-atom map.")
@@ -156,11 +162,11 @@ def make_partition(header: dict, mapping: Path, geometry: Path, pdb: Path) -> di
             residue_name = next(iter(bases))
             base = BASES[residue_name]
             sequence += base
-            ids = [int(row["gaussian_atom_1based"]) for row in selected]
+            ids = [int(row[atom_index_key]) for row in selected]
             first, last = ids[0], ids[-1]
             if ids != list(range(first, last + 1)):
                 raise ValueError("Nucleotide atoms must be contiguous in Gaussian input order.")
-            names = {row["atom_name"]: int(row["gaussian_atom_1based"]) for row in selected}
+            names = {row["atom_name"]: int(row[atom_index_key]) for row in selected}
             if len(names) != len(selected):
                 raise ValueError(f"Duplicate atom names in {chain}:{position}.")
             label = residue_name if residue_name in MODIFIED_BASES else base
@@ -272,6 +278,9 @@ def inspect_source(source: Path, output: Path) -> dict:
 def export_package(inspection: Path, output: Path, parameters: dict) -> dict:
     energies = energy_grid(parameters)
     report = read_json(inspection / "inspection.json")
+    if report.get("protocol") == ORCA_PROTOCOL:
+        from orca_dos_v2 import export_package as export_orca
+        return export_orca(inspection, output, parameters)
     files = {key: Path(value["path"]) for key, value in report["source_files"].items()}
     if file_states(files) != report["source_files"]:
         raise ValueError("Inputs changed after inspection; run inspect again.")
@@ -299,7 +308,18 @@ def export_package(inspection: Path, output: Path, parameters: dict) -> dict:
     for role, name in (("geometry", "dna.gjf"), ("pdb", "dna_selected.pdb"), ("mapping", "atom_mapping.csv")):
         shutil.copy2(files[role], inputs / name)
     np.save(output / "energies_eV.npy", energies)
-    for name in ("dna_dos_v2.py", "gaussian_full_dos_11660.py", "spurious30_v2.py", "plot_dna_dos_v2.py",
+    write_package_runtime(output)
+    if file_states(files) != report["source_files"]:
+        raise ValueError("Source changed while extracting matrices; package remains marked incomplete.")
+    manifest["phase"] = "exported"
+    (output / "GPU_GUIDE.md").write_text(gpu_guide(manifest), encoding="utf-8")
+    save_json(output / "manifest.json", manifest)
+    print(f"GPU package exported: {output}\nNext: run prepare.sh on the compute node, then run_gpu.sh.", flush=True)
+    return manifest
+
+
+def write_package_runtime(output: Path) -> None:
+    for name in ("dna_dos_v2.py", "orca_dos_v2.py", "gaussian_full_dos_11660.py", "spurious30_v2.py", "plot_dna_dos_v2.py",
                  "plot_figure3_abcd_gaussian_spurious30_v2.py"):
         shutil.copy2(HERE / name, output / name)
     (output / "requirements.txt").write_text("numpy>=2.0\nscipy>=1.14\n# Install a CUDA build of PyTorch separately on the compute node.\n", encoding="utf-8")
@@ -310,13 +330,6 @@ def export_package(inspection: Path, output: Path, parameters: dict) -> dict:
     }
     for name, body in scripts.items():
         (output / name).write_text('#!/usr/bin/env bash\nset -euo pipefail\ncd -- "$(dirname -- "${BASH_SOURCE[0]}")"\n' + body, encoding="utf-8", newline="\n")
-    if file_states(files) != report["source_files"]:
-        raise ValueError("Source changed while extracting matrices; package remains marked incomplete.")
-    manifest["phase"] = "exported"
-    (output / "GPU_GUIDE.md").write_text(gpu_guide(manifest), encoding="utf-8")
-    save_json(output / "manifest.json", manifest)
-    print(f"GPU package exported: {output}\nNext: run prepare.sh on the compute node, then run_gpu.sh.", flush=True)
-    return manifest
 
 
 def build_square(path: Path, size: int, fill) -> np.memmap:
@@ -402,15 +415,17 @@ def prepare_material(data: Path, overrides: Path | None = None) -> dict:
     from scipy.linalg import eigh
 
     manifest = read_json(data / "manifest.json")
-    if manifest.get("protocol") != PROTOCOL or manifest.get("phase") != "exported":
+    if manifest.get("protocol") not in (PROTOCOL, ORCA_PROTOCOL) or manifest.get("phase") != "exported":
         raise ValueError("Package export is incomplete or has a different protocol.")
+    is_orca = manifest["protocol"] == ORCA_PROTOCOL
+    geometry_name, partition_name = result_filenames(manifest)
     if (data / "metadata.json").is_file():
         prepared = read_json(data / "metadata.json")
         if prepared["run_id"] != manifest["run_id"] or prepared["parameters"] != manifest["parameters"]:
             raise ValueError("Prepared data does not match this package; use a fresh package directory.")
         if overrides is not None:
             selected = read_json(overrides)
-            partition = read_json(data / "gaussian_partitions.json")
+            partition = read_json(data / partition_name)
             recorded = {entry["name"]: entry["exclude_probe_local"][0]
                         for entry in partition["nucleotides"] if entry.get("exclude_probe_local")}
             if selected != recorded or any(type(value) is not int for value in selected.values()):
@@ -433,14 +448,18 @@ def prepare_material(data: Path, overrides: Path | None = None) -> dict:
             vectors = {key: loaded[key] for key in loaded.files}
         print("Reuse completed Hamiltonian; continuing probe/contact preparation.", flush=True)
     else:
-        overlap = unpack_matrix(data / "inputs/overlap_packed.npy", work / "overlap.npy", n)
+        overlap = np.load(data / "inputs/overlap.npy", mmap_mode="r") if is_orca else unpack_matrix(data / "inputs/overlap_packed.npy", work / "overlap.npy", n)
+        if is_orca and (overlap.shape != (n, n) or gaussian.block_symmetry_error(overlap) > 1e-10):
+            raise ValueError("Overlap shape or symmetry validation failed.")
         rng = np.random.default_rng(20260831)
         probes = rng.normal(size=(n, 3))
-        orthogonal = np.load(data / "inputs/gaussian_orthogonal_basis.npy", mmap_mode="r")
+        orthogonal = np.load(data / ("inputs/mo_coefficients.npy" if is_orca else "inputs/gaussian_orthogonal_basis.npy"), mmap_mode="r")
+        if orthogonal.shape != (n, n):
+            raise ValueError("Complete square MO/orthogonalizer data is required.")
         error = float(np.linalg.norm(orthogonal.T @ (overlap @ (orthogonal @ probes)) - probes) / np.linalg.norm(probes))
         if not np.isfinite(error) or error > 1e-8:
-            raise ValueError(f"Gaussian orthogonalizer failed X.T S X = I: {error:.3e}.")
-        validation["gaussian_orthogonalizer_random_relative_error"] = error
+            raise ValueError(f"{'ORCA C.T S C' if is_orca else 'Gaussian orthogonalizer X.T S X'} validation failed: {error:.3e}.")
+        validation["orca_mo_orthogonality_random_relative_error" if is_orca else "gaussian_orthogonalizer_random_relative_error"] = error
         del orthogonal
         x_path = work / "lowdin_inverse_sqrt.npy"
         if gaussian.valid_npy(x_path, (n, n)):
@@ -469,19 +488,40 @@ def prepare_material(data: Path, overrides: Path | None = None) -> dict:
             raise ValueError(f"Lowdin validation failed: residual={error:.3e}, symmetry={symmetry:.3e}.")
         validation.update(lowdin_random_relative_error=error, lowdin_symmetry_error=symmetry,
                           s_min_eigenvalue=float(eigenvalues[0]), s_max_eigenvalue=float(eigenvalues[-1]))
-        del overlap
-        fock = unpack_matrix(data / "inputs/fock_packed_hartree.npy", work / "fock.npy", n)
-        print("float64 F @ X", flush=True)
-        fx = build_square(work / "fx.npy", n, lambda out: np.matmul(fock, lowdin, out=out))
-        print("float64 H0 = X.T @ F @ X", flush=True)
+        if is_orca:
+            coefficients = np.load(data / "inputs/mo_coefficients.npy", mmap_mode="r")
+            sc = build_square(work / "sc.npy", n, lambda out: np.matmul(overlap, coefficients, out=out))
+            q = build_square(work / "orthogonal_mos.npy", n, lambda out: np.matmul(lowdin, sc, out=out))
+            error = float(np.linalg.norm(q.T @ (q @ probes) - probes) / np.linalg.norm(probes))
+            if not np.isfinite(error) or error > 1e-8:
+                raise ValueError(f"ORCA Q=S^1/2 C is not orthogonal: {error:.3e}.")
+            validation.update(orca_q_orthogonality_random_relative_error=error,
+                              h0_method="Q=S^1/2 C; H0=Q epsilon Q.T, equivalent to Lowdin F/S for complete orthonormal MOs")
+            orbital = np.load(data / "inputs/orbital_energies_hartree.npy") * gaussian.HARTREE_TO_EV
 
-        def fill_h0(out):
-            np.matmul(lowdin.T, fx, out=out)
-            out *= gaussian.HARTREE_TO_EV
-            gaussian.symmetrize_in_place(out)
+            def fill_h0(out):
+                for start in range(0, n, 512):
+                    stop = min(n, start + 512)
+                    out[start:stop] = (q[start:stop] * orbital) @ q.T
+                gaussian.symmetrize_in_place(out)
 
-        h0 = build_square(work / "h0_eV.npy", n, fill_h0)
-        del fock, fx, lowdin
+            h0 = build_square(work / "h0_eV.npy", n, fill_h0)
+            del coefficients, sc, q, overlap
+        else:
+            del overlap
+            fock = unpack_matrix(data / "inputs/fock_packed_hartree.npy", work / "fock.npy", n)
+            print("float64 F @ X", flush=True)
+            fx = build_square(work / "fx.npy", n, lambda out: np.matmul(fock, lowdin, out=out))
+            print("float64 H0 = X.T @ F @ X", flush=True)
+
+            def fill_h0(out):
+                np.matmul(lowdin.T, fx, out=out)
+                out *= gaussian.HARTREE_TO_EV
+                gaussian.symmetrize_in_place(out)
+
+            h0 = build_square(work / "h0_eV.npy", n, fill_h0)
+            del fock, fx
+        del lowdin
         gc.collect()
         orbital_eV = np.load(data / "inputs/orbital_energies_hartree.npy") * gaussian.HARTREE_TO_EV
         trace_error = float(abs(np.trace(h0) - orbital_eV.sum()))
@@ -489,7 +529,7 @@ def prepare_material(data: Path, overrides: Path | None = None) -> dict:
         spectrum_norm = float(orbital_eV @ orbital_eV)
         spectrum_error = abs(h0_norm - spectrum_norm) / max(spectrum_norm, 1.0)
         if trace_error > 1e-4 or spectrum_error > 1e-10:
-            raise ValueError(f"F/S transformed spectrum disagrees with Gaussian MO energies: trace={trace_error:.3g}, norm={spectrum_error:.3g}.")
+            raise ValueError(f"Transformed spectrum disagrees with MO energies: trace={trace_error:.3g}, norm={spectrum_error:.3g}.")
         validation.update(h0_trace_error_eV=trace_error, h0_spectral_norm_relative_error=spectrum_error)
         vectors, onsite, unitary_error = {}, np.empty(n, dtype=np.float64), 0.0
         for entry in partition["nucleotides"]:
@@ -529,7 +569,7 @@ def prepare_material(data: Path, overrides: Path | None = None) -> dict:
         save_json(work / "matrix_validation.json", validation)
         del h0, right
         gc.collect()
-    atoms = gaussian.gaussian_geometry(data / "inputs/dna.gjf")
+    atoms = v2.load_geometry(data / "inputs" / geometry_name)
     candidates = probe_candidates(partition, onsite, local, parameters)
     fields = ["nucleotide", "local_index_1based", "global_index_0based", "onsite_eV", "coupling_norm_to_previous_eV", "in_v2_window"]
     write_csv(data / "probe_candidates.csv", fields, ([row[key] for key in fields] for row in candidates))
@@ -570,8 +610,8 @@ def prepare_material(data: Path, overrides: Path | None = None) -> dict:
     if not np.isfinite(sigma_b).all() or np.any(sigma_b.imag > 1e-14):
         raise ValueError("Nonfinite or non-retarded probe self-energy.")
     np.save(data / "sigma_b_eV.npy", sigma_b)
-    save_json(data / "gaussian_partitions.json", partition)
-    metadata = {"protocol": PROTOCOL, "run_id": manifest["run_id"], "parameters": parameters,
+    save_json(data / partition_name, partition)
+    metadata = {"protocol": manifest["protocol"], "run_id": manifest["run_id"], "parameters": parameters,
                 "state_count": n, "atom_count": manifest["atom_count"], "base_pair_count": len(groups),
                 "base_pair_order": groups, "base_pair_display_labels": partition["base_pair_display_labels"],
                 "strand_sequences_5to3": partition["strand_sequences_5to3"], "contacts": partition["contacts"],
@@ -587,7 +627,7 @@ def prepare_material(data: Path, overrides: Path | None = None) -> dict:
 
 
 def point_contract(metadata: dict, dtype: str) -> str:
-    return json.dumps({"protocol": PROTOCOL, "run_id": metadata["run_id"], "state_count": metadata["state_count"],
+    return json.dumps({"protocol": metadata["protocol"], "run_id": metadata["run_id"], "state_count": metadata["state_count"],
                        "base_pair_order": metadata["base_pair_order"], "parameters": metadata["parameters"],
                        "dtype": dtype}, sort_keys=True)
 
@@ -651,7 +691,7 @@ def run_gpu(args: argparse.Namespace) -> None:
     torch = gaussian.import_torch()
     metadata = read_json(args.data / "metadata.json")
     manifest = read_json(args.data / "manifest.json")
-    if metadata["protocol"] != PROTOCOL or metadata["run_id"] != manifest["run_id"] or metadata["parameters"] != manifest["parameters"]:
+    if metadata["protocol"] not in (PROTOCOL, ORCA_PROTOCOL) or metadata["protocol"] != manifest["protocol"] or metadata["run_id"] != manifest["run_id"] or metadata["parameters"] != manifest["parameters"]:
         raise ValueError("Prepared material and package parameters disagree.")
     if args.rhs_chunk < 1:
         raise ValueError("RHS chunk size must be positive.")
@@ -682,8 +722,9 @@ def run_gpu(args: argparse.Namespace) -> None:
             raise ValueError("This results directory belongs to a different run or precision.")
     else:
         save_json(run_meta_path, run_metadata)
-    for source, destination in (("energies_eV.npy", "energies_eV.npy"), ("gaussian_partitions.json", "gaussian_partitions.json"),
-                                ("inputs/dna.gjf", "dna.gjf"), ("inputs/dna_selected.pdb", "dna_selected.pdb"),
+    geometry_name, partition_name = result_filenames(metadata)
+    for source, destination in (("energies_eV.npy", "energies_eV.npy"), (partition_name, partition_name),
+                                ("inputs/" + geometry_name, geometry_name), ("inputs/dna_selected.pdb", "dna_selected.pdb"),
                                 ("inputs/atom_mapping.csv", "atom_mapping.csv"), ("spurious_states.csv", "spurious_states.csv")):
         if not (args.output / destination).exists():
             shutil.copy2(args.data / source, args.output / destination)
@@ -779,11 +820,11 @@ def merge_results(results: Path) -> dict:
 
 def verify_results(results: Path, package: Path | None = None) -> dict:
     metadata = read_json(results / "run_manifest.json")
-    if metadata.get("protocol") != PROTOCOL:
+    if metadata.get("protocol") not in (PROTOCOL, ORCA_PROTOCOL):
         raise ValueError("This is not a result from the general DNA V2 package.")
     if package is not None:
         manifest = read_json(package / "manifest.json")
-        for key in ("run_id", "state_count", "parameters"):
+        for key in ("protocol", "run_id", "state_count", "parameters"):
             if manifest[key] != metadata[key]:
                 raise ValueError(f"Returned results do not match the selected package: {key}.")
     expected = energy_grid(metadata["parameters"])
@@ -808,13 +849,14 @@ def verify_results(results: Path, package: Path | None = None) -> dict:
         combined = np.column_stack([binned["dos2d"], binned["total_dos"], binned["contact_dos"]])
         if not np.allclose(centers, binned["energy_eV"], atol=1e-12, rtol=0) or not np.allclose(widths, binned["bin_width_eV"], atol=1e-12, rtol=0) or not np.allclose(averaged, combined, atol=1e-11, rtol=1e-11):
             raise ValueError("Returned bins disagree with integral-conserving V2 binning.")
-    partition = read_json(results / "gaussian_partitions.json")
+    geometry_name, partition_name = result_filenames(metadata)
+    partition = read_json(results / partition_name)
     coverage = np.zeros(metadata["state_count"], dtype=np.int8)
     for entry in partition["nucleotides"]:
         coverage[v2.partition_indices(entry)] += 1
     if np.any(coverage != 1):
         raise ValueError("Returned partition does not cover all states exactly once.")
-    for name in ("dna.gjf", "dna_selected.pdb", "atom_mapping.csv", "run_summary.json"):
+    for name in (geometry_name, "dna_selected.pdb", "atom_mapping.csv", "run_summary.json"):
         if not (results / name).is_file():
             raise FileNotFoundError(f"Return the complete results folder, including {name}.")
     summary = read_json(results / "run_summary.json")
@@ -861,18 +903,26 @@ def self_test(device: str = "cpu") -> None:
 
 
 def gpu_guide(manifest: dict) -> str:
+    is_orca = manifest["protocol"] == ORCA_PROTOCOL
+    engine = "ORCA" if is_orca else "Gaussian"
+    geometry_name, partition_name = result_filenames(manifest)
+    source_description = "ORCA S / 完整 MO / 轨道能量" if is_orca else "Gaussian F/S"
+    raw_file = "dna.json" if is_orca else "dna.mat"
+    h0_formula = "Q=S^(1/2)C、H0=Q epsilon Q.T" if is_orca else "H0=X.T F X"
+    validation_note = ("ORCA 验证完整实闭壳层 C.T S C=I；Q=S^(1/2)C，等价于对重建 F 进行对称 Löwdin。H-Matrix 不作为 Fock。"
+                       if is_orca else "输入中的 Gaussian `ORTHOGONAL BASIS` 只作验证，不能替代自行构建的对称 Löwdin。")
     n, p = manifest["state_count"], manifest["parameters"]
     count = len(energy_grid(p))
     return f"""# DNA 全空间 DoS GPU 执行指南
 
-本包协议：`{PROTOCOL}`；run_id：`{manifest['run_id']}`。
+本包协议：`{manifest['protocol']}`；run_id：`{manifest['run_id']}`。
 体系：{manifest['atom_count']} 原子、{manifest['base_pair_count']} 个位置、**{n} 态**。
-本包来自 Gaussian F/S。Windows 来源路径只作溯源；运行只用包内相对路径。
+本包来自 {source_description}。Windows 来源路径只作溯源；运行只用包内相对路径。
 
 ## 1. 复制与环境
 
 复制整个包到超算可读写目录。本包不需要 Gaussian、ORCA、Obsidian、VMD 或 Windows。
-原始 dna.mat 不需再次上传。保留本机原始计算文件和 Gaussian 收敛日志。
+原始 {raw_file} 不需再次上传。保留本机原始计算文件和 {engine} 收敛日志。
 
 使用 Python 3.10+、NumPy 2.x、SciPy 和与 NVIDIA 驱动匹配的 CUDA 版 PyTorch。
 若超算提供现成 PyTorch 环境，优先使用。没有时按 https://pytorch.org/get-started/locally/ 选择 CUDA 安装命令。
@@ -895,7 +945,7 @@ export OMP_NUM_THREADS=8  # 改成调度器实际分配的 CPU 数
 bash prepare.sh
 ```
 
-此步骤在 CPU 上用 float64 计算 S^(-1/2)、H0=X.T F X、nucleotide 块对角化和 H=U.T H0 U。
+此步骤在 CPU 上用 float64 计算 S^(-1/2)、{h0_formula}、nucleotide 块对角化和 H=U.T H0 U。
 全空间不做 active-window 截断。单张 float64 方阵约 {n*n*8/2**30:.2f} GiB；需要多张矩阵和分解工作空间。
 本次规模建议使用内存充足的节点（例如 64 GiB 或更多），实际峰值由 BLAS/LAPACK 后端决定。
 `_prepare_work` 保存完成的中间阶段；中断后再次运行相同命令。
@@ -903,7 +953,7 @@ bash prepare.sh
 
 完成后确认：state_count={n}；bp 数={manifest['base_pair_count']}；
 Löwdin 随机向量残差、局域化不变量及 contact projector 验证均通过。
-输入中的 Gaussian `ORTHOGONAL BASIS` 只作验证，不能替代自行构建的对称 Löwdin。
+{validation_note}
 
 ## 3. 检查 probe 候选
 
@@ -972,7 +1022,7 @@ python dna_dos_v2.py run --data . --output results_c128 --dtype complex128 --dev
 - dos2d_results.npz / dos2d.csv：原始逐能量 bp DoS 与左右 contact-projected DoS；
 - dos2d_binned.npz / dos2d_binned.csv：{p['dos_bin_width_eV']} eV 积分守恒分箱；
 - run_manifest.json、run_summary.json、verification_report.json；
-- gaussian_partitions.json、dna.gjf、dna_selected.pdb、atom_mapping.csv、base_pairs.csv；
+- {partition_name}、{geometry_name}、dna_selected.pdb、atom_mapping.csv、base_pairs.csv；
 - points：建议保留用于审计和补算；已完整 merge 后本机绘图不要求逐点文件。
 
 不必回传 Hamiltonian、F/S 或 _prepare_work。不要只传一份无元数据的 CSV。
@@ -993,6 +1043,7 @@ def parser() -> argparse.ArgumentParser:
     commands = root.add_subparsers(dest="command", required=True)
     inspect = commands.add_parser("inspect")
     inspect.add_argument("--source", type=Path, required=True)
+    inspect.add_argument("--engine", choices=("gaussian", "orca"), default="gaussian")
     inspect.add_argument("--output", type=Path, required=True)
     export = commands.add_parser("export")
     export.add_argument("--inspection", type=Path, required=True)
@@ -1033,7 +1084,11 @@ def parser() -> argparse.ArgumentParser:
 def main() -> None:
     args = parser().parse_args()
     if args.command == "inspect":
-        inspect_source(args.source, args.output)
+        if args.engine == "orca":
+            from orca_dos_v2 import inspect_source as inspect_orca
+            inspect_orca(args.source, args.output)
+        else:
+            inspect_source(args.source, args.output)
     elif args.command == "export":
         export_package(args.inspection, args.output, {key: getattr(args, key) for key in DEFAULTS})
     elif args.command == "prepare":

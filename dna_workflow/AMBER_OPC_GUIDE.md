@@ -63,6 +63,16 @@ O6-CM按羧酸根核苷−1e处理，DNA内部残基−2e。27bp双链含一个�
 - `md_extensions.py`：主导构型再溶剂化和 EM 子任务。
 - `gui_server.py`、`gui/index.html`：GUI 模型选择及环境检查。
 
+## Gaussian / ORCA 与回传结果
+
+“04 量化计算”可选择 Gaussian 或 ORCA；Gaussian 原输入设置保留，ORCA 输出独立的 `dna.inp`、`orca.json.conf` 和原子映射。ORCA 单点正常结束后，在同目录执行 `orca_2json dna.gbw -json`，导出完整 MO、轨道能量、基组和 S 矩阵。本机检查与打包 ORCA JSON 另需 `ijson`。
+
+“05 DoS 与结果”分别保存 `dos_v2`（Gaussian）和 `dos_v2_orca`（ORCA）的状态。两条路径共用 V2 求解及后处理；ORCA 用完整 MO 重建正交 Hamiltonian，不把 core H-Matrix 当作收敛 Fock。现有 ORCA 路径为球谐5D、B3LYP、CPCM或SMD，Gaussian 路径为6D、Gaussian B3LYP和IEFPCM；同一后处理不意味着两者的电子结构等价。
+
+回传整个 `results_c64` 或 `results_c128` 后，点击“载入已有计算包 / 结果”，选择计算包根目录或结果目录。工作台自动定位所属 DNA 任务、选择量化程序并核验，然后可生成 Figure 3a–d；不要把计算包当作原始矩阵目录重新检查。目录需位于原 DNA 任务下，并保留任务的 `workflow.json`。选择计算包根目录时优先使用其 `results_c64`；查看另一精度时直接选择对应结果目录。
+
+当前 ORCA 6.1.1 的27bp、18682态回传已完成核验和绘图。该记录不代表本机重新运行了完整 DFT 或 CUDA 扫描。
+
 ## 验证记录
 
 - 既有/新分支流程测试通过；另外显式执行 `test_workflow.py`，标准单双链、CHARMM 重原子/末端、PDB 回读和 MDP 单位测试通过；5 项 DoS 回归测试通过。
@@ -73,4 +83,4 @@ O6-CM按羧酸根核苷−1e处理，DNA内部残基−2e。27bp双链含一个�
 - OL24 水盒：5114 个四位点 OPC 水，26 个 Na+、16 个 Cl−，共 20877 位点；10 个 Na+ 用于中和，16 对盐对应盒体积离散化后的目标 0.15 M。
 - OL24 代表构型 EM 子任务已通过再次溶剂化和无位置约束 EM TPR 编译。没有执行生产 MD、Gaussian 或大型 DoS 计算。
 
-原始 CHARMM 基线保留在 Git 标签 `baseline-charmm36-20260922`，开发位于 `feature/amber-ol-opc`，尚不合并主分支。
+原始 CHARMM 基线保留在 Git 标签 `baseline-charmm36-20260922`；后续更新经 `feature/amber-ol-opc` 提交并合入 `main`。

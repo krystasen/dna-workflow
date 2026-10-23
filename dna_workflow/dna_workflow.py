@@ -1,4 +1,4 @@
-"""Sequence -> CHARMM36 job; selected all-atom MD frame -> Gaussian matrix job.
+"""Sequence -> MD job; selected all-atom frame -> Gaussian or ORCA job.
 
 Linear DNA with canonical or catalogued OL21 modifications and OH termini is supported.
 Open Babel is required only by `build`; other commands use the standard library.
@@ -370,7 +370,7 @@ def select_dna_atoms(raw: list[Atom], reference: list[Atom]) -> list[Atom]:
     return selected
 
 
-def gaussian(args) -> None:
+def quantum_input(args, engine="gaussian") -> None:
     job = args.job.resolve()
     cfg = json.loads((job / "workflow.json").read_text(encoding="utf-8"))
     is_relaxation = cfg.get("role") == "representative_relaxation"
@@ -405,34 +405,70 @@ def gaussian(args) -> None:
     route = "#P B3LYP/6-31G(d,p) 6D 10F SCRF=(IEFPCM,Solvent=Water) NoSymm Output=Matrix"
     if args.dispersion != "none":
         route += " EmpiricalDispersion=" + args.dispersion
+    if engine == "orca":
+        route = "! SP B3LYP 6-31G(d,p) TightSCF RIJCOSX def2/J"
+        route += {"none": "", "GD3": " D3ZERO", "GD3BJ": " D3BJ"}[args.dispersion]
+        if args.solvent == "cpcm":
+            route += " CPCM(Water)"
+        total_mb = int(re.match(r"\d+", args.memory).group()) * (1024 if args.memory.upper().endswith("GB") else 1)
+        maxcore = int(0.75 * total_mb / args.nproc)
+        if maxcore < 1:
+            raise ValueError("Total memory is too small for the requested ORCA process count.")
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
     (output / "dna_selected.pdb").write_text(pdb_text(cleaned), encoding="ascii")
     coordinates = "\n".join(f"{a.element:<2} {a.xyz[0]:16.8f} {a.xyz[1]:16.8f} {a.xyz[2]:16.8f}" for a in cleaned)
     title = ("EM-relaxed representative structure; unoptimized Gaussian single point; source was a user-selected confirmed PDB"
              if is_relaxation else "Selected raw MD frame; unoptimized Gaussian single point")
-    text = (f"%chk=dna.chk\n%nprocshared={args.nproc}\n%mem={args.memory.upper()}\n{route}\n\n"
-            f"{title}; time_ps={args.time_ps}\n\n{charge} 1\n"
-            f"{coordinates}\n\ndna.mat\n\n")
-    (output / "dna.gjf").write_text(text, encoding="ascii")
+    if engine == "gaussian":
+        text = (f"%chk=dna.chk\n%nprocshared={args.nproc}\n%mem={args.memory.upper()}\n{route}\n\n"
+                f"{title}; time_ps={args.time_ps}\n\n{charge} 1\n"
+                f"{coordinates}\n\ndna.mat\n\n")
+        (output / "dna.gjf").write_text(text, encoding="ascii")
+    else:
+        solvent = '%cpcm\n  smd true\n  SMDsolvent "water"\nend\n' if args.solvent == "smd" else ""
+        text = (f"{route}\n%pal nprocs {args.nproc} end\n%maxcore {maxcore}\n"
+                f"%scf MaxIter 500 end\n%method COSX_IntSymmetry Full end\n{solvent}"
+                f"* xyz {charge} 1\n{coordinates}\n*\n")
+        (output / "dna.inp").write_text(text, encoding="ascii")
+        save_json(output / "orca.json.conf", {"MOCoefficients": True, "Basisset": True,
+                                               "1elIntegrals": ["S"], "JSONFormats": ["json"]})
     with (output / "atom_mapping.csv").open("w", encoding="utf-8", newline="") as stream:
         writer = csv.writer(stream)
-        writer.writerow(["gaussian_atom_1based", "source_pdb_serial", "chain", "nucleotide_1based", "resname", "atom_name", "bp_1based"])
+        writer.writerow([f"{engine}_atom_1based", "source_pdb_serial", "chain", "nucleotide_1based", "resname", "atom_name", "bp_1based"])
         for i,(a,b) in enumerate(zip(cleaned, selected),1):
             bp = a.resid if a.chain == "A" else len(cfg["strands_5to3"][0]) + 1 - a.resid
             writer.writerow([i,b.serial,a.chain,a.resid,a.residue,a.name,bp if len(cfg["strands_5to3"]) == 2 else ""])
-    provenance = ({"route": "raw_frame_to_relax_child_to_verified_em_to_gaussian",
+    provenance = ({"route": f"raw_frame_to_relax_child_to_verified_em_to_{engine}",
                    "source_job": cfg["source_job"], "source_frame": cfg["source_frame"],
                    "relaxed_frame": str(args.frame.resolve()), "em_verified": True}
                   if is_relaxation else {"route": "direct_raw_md_frame", "source_frame": str(args.frame.resolve())})
-    save_json(output / "gaussian_preparation.json", {**report, "source_frame": str(args.frame.resolve()),
+    save_json(output / f"{engine}_preparation.json", {**report, "source_frame": str(args.frame.resolve()),
               "time_ps": args.time_ps, "removed_environment_atoms": len(raw)-len(selected),
               "electron_count": electrons, "multiplicity": 1, "route": route,
               "coordinate_units": "angstrom", "coordinates_changed": False,
               "input_role": "representative_relaxation" if is_relaxation else "raw_md_frame", "provenance": provenance,
-              "ao_mapping": "Not available until Gaussian exports basis metadata; CSV is atom mapping only.",
-              "validation": "Geometry, DNA composition, atom order and charge checked; Gaussian not executed"})
-    print(output / "dna.gjf")
+              "ao_mapping": f"Not available until {'ORCA' if engine == 'orca' else 'Gaussian'} exports basis metadata; CSV is atom mapping only.",
+              "validation": f"Geometry, DNA composition, atom order and charge checked; {'ORCA' if engine == 'orca' else 'Gaussian'} not executed"})
+    if engine == "orca":
+        (output / "README.md").write_text(
+            "# ORCA 6.0.1 DNA 单点\n\n"
+            "运行 `orca dna.inp > dna.out`。正常结束后，在同目录保留 orca.json.conf，运行 "
+            "`orca_2json dna.gbw -json`。\n\n"
+            "回传 dna.json、dna.out，以及本目录原有的 dna.inp、dna_selected.pdb 和 atom_mapping.csv。"
+            "工作台中选择 ORCA 后检查矩阵并生成 GPU 包。\n\n"
+            f"memory={args.memory.upper()} 为总内存预算，%maxcore={maxcore} MB/进程，已预留约25%开销。"
+            "ORCA 默认球谐5D，Gaussian 现有路径为笛卡尔6D；二者态数不必相同。\n",
+            encoding="utf-8")
+    print(output / ("dna.gjf" if engine == "gaussian" else "dna.inp"))
+
+
+def gaussian(args) -> None:
+    quantum_input(args)
+
+
+def orca(args) -> None:
+    quantum_input(args, "orca")
 
 
 def parser():
@@ -470,6 +506,16 @@ def parser():
     p.add_argument("--memory", default="32GB")
     p.add_argument("--dispersion", choices=["none", "GD3", "GD3BJ"], default="none")
     p.set_defaults(func=gaussian)
+    p = sub.add_parser("orca")
+    p.add_argument("--job", type=Path, required=True)
+    p.add_argument("--frame", type=Path, required=True)
+    p.add_argument("--output", type=Path, required=True)
+    p.add_argument("--time-ps", type=float)
+    p.add_argument("--nproc", type=int, default=16)
+    p.add_argument("--memory", default="32GB", help="total memory budget; maxcore reserves 25%% overhead")
+    p.add_argument("--dispersion", choices=["none", "GD3", "GD3BJ"], default="none")
+    p.add_argument("--solvent", choices=["cpcm", "smd"], default="cpcm")
+    p.set_defaults(func=orca)
     return root
 
 

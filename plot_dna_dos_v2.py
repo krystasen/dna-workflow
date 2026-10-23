@@ -72,10 +72,12 @@ def calculate(results: Path, gateway=None, temperature=None, display_sigma=0.005
         centers, widths, binned = bins["energy_eV"], bins["bin_width_eV"], bins["dos2d"]
     left_bp = next(item for item in metadata["contacts"] if item["side"] == "left")["base_pair_index"]
     selected, candidates = choose_gateway(energies, dos, contact, left_bp, temperature, gateway, bounds)
-    elements, xyz = reference.gaussian_geometry(results / "dna.gjf")
+    geometry_name, partition_name = workflow.result_filenames(metadata)
+    atoms = workflow.v2.load_geometry(results / geometry_name)
+    elements, xyz = [element for element, _ in atoms], np.asarray([point for _, point in atoms])
     if len(elements) != metadata["atom_count"]:
         raise ValueError("Returned structure atom count differs from the calculation.")
-    partition = workflow.read_json(results / "gaussian_partitions.json")
+    partition = workflow.read_json(results / partition_name)
     bp_atoms, atom_to_pair = reference.base_pair_atoms(partition, metadata["base_pair_order"], len(elements))
     atomic_volume = np.asarray([4 * np.pi * reference.VDW_A[element] ** 3 / 3 / 1000 for element in elements])
     volumes = np.asarray([atomic_volume[indices].sum() for indices in bp_atoms])

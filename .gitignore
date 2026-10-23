@@ -3,6 +3,7 @@
 !/.gitignore
 !/dna_workflow/
 !/dna_dos_v2.py
+!/orca_dos_v2.py
 !/gaussian_full_dos_11660.py
 !/spurious30_v2.py
 !/plot_dna_dos_v2.py
