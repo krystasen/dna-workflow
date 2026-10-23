@@ -18,7 +18,7 @@ DOS_BIN_WIDTH_EV = 0.024
 GAMMA_B_EV = 0.01
 LAMBDA_EV = 0.05
 SPURIOUS_ENERGY_WINDOW_EV = (-6.05, -5.65)
-COVALENT_RADII_A = {"H": 0.31, "C": 0.76, "N": 0.71, "O": 0.66, "P": 1.07}
+COVALENT_RADII_A = {"H": 0.31, "C": 0.76, "N": 0.71, "O": 0.66, "P": 1.07, "Cl": 1.02}
 
 
 def partition_indices(entry: dict[str, Any]) -> np.ndarray:
@@ -53,7 +53,7 @@ def load_geometry(path: Path) -> list[tuple[str, np.ndarray]]:
             if atoms:
                 break
             continue
-        element = fields[0].upper()
+        element = fields[0].title()
         if element not in COVALENT_RADII_A:
             raise ValueError(f"Unsupported element {element} in {path}.")
         atoms.append((element, np.asarray(fields[1:4], dtype=float)))
@@ -71,7 +71,8 @@ def identify_spurious_states(
 ) -> list[dict[str, Any]]:
     grouped: dict[str, list[tuple[int, dict[str, Any]]]] = {}
     for entry in entries:
-        match = re.fullmatch(r"(s\d+)_(\d+)_(A|C|G|T)", entry["name"])
+        # Ordering uses strand/position; retain the explicit modified-residue suffix.
+        match = re.fullmatch(r"(s\d+)_(\d+)_([A-Z][A-Z0-9]*)", entry["name"])
         if not match:
             raise ValueError(f"Cannot identify strand position from {entry['name']}.")
         grouped.setdefault(match.group(1), []).append((int(match.group(2)), entry))
@@ -108,7 +109,13 @@ def identify_spurious_states(
                 (current_onsite >= energy_window[0]) & (current_onsite <= energy_window[1])
             )
             if not candidates.size:
-                raise ValueError(f"No dangling-bond candidate in {current['name']}.")
+                distance = np.maximum(np.maximum(energy_window[0] - current_onsite,
+                                                 current_onsite - energy_window[1]), 0.0)
+                nearest = np.argsort(distance, kind="stable")[:6]
+                details = "; ".join(f"local={index + 1}, E={current_onsite[index]:.8f} eV, "
+                                    f"coupling={coupling_norms[index]:.8f} eV" for index in nearest)
+                raise ValueError(f"No dangling-bond candidate in {current['name']} within "
+                                 f"[{energy_window[0]}, {energy_window[1]}] eV. Nearest states: {details}.")
             ranked = candidates[np.argsort(coupling_norms[candidates])[::-1]]
             candidate = int(ranked[0])
             runner_up = float(coupling_norms[ranked[1]]) if ranked.size > 1 else 0.0

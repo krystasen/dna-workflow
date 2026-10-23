@@ -1,0 +1,289 @@
+[
+  {
+    "section": "BOND",
+    "target": [
+      "CB",
+      "NA"
+    ],
+    "source_file": "/mnt/d/data/DNA DoS/computation/DNA_adducts_OL21_20261008/build_20261012/completion/reference_8OG.frcmod",
+    "source_types": [
+      "CB",
+      "NA"
+    ],
+    "reason": "published Manchester/Bryce 8OG local term; OL21 scaffold and new RESP retained",
+    "actual_values": [
+      414.0,
+      1.391
+    ],
+    "basis": "force-field analogy"
+  },
+  {
+    "section": "BOND",
+    "target": [
+      "CK",
+      "NA"
+    ],
+    "source_file": "/mnt/d/data/DNA DoS/computation/DNA_adducts_OL21_20261008/build_20261012/completion/reference_8OG.frcmod",
+    "source_types": [
+      "CK",
+      "NA"
+    ],
+    "reason": "published Manchester/Bryce 8OG local term; OL21 scaffold and new RESP retained",
+    "actual_values": [
+      529.0,
+      1.304
+    ],
+    "basis": "force-field analogy"
+  },
+  {
+    "section": "BOND",
+    "target": [
+      "CK",
+      "O"
+    ],
+    "source_file": "/mnt/d/data/DNA DoS/computation/DNA_adducts_OL21_20261008/build_20261012/completion/reference_8OG.frcmod",
+    "source_types": [
+      "CK",
+      "O"
+    ],
+    "reason": "published Manchester/Bryce 8OG local term; OL21 scaffold and new RESP retained",
+    "actual_values": [
+      570.0,
+      1.229
+    ],
+    "basis": "force-field analogy"
+  },
+  {
+    "section": "ANGLE",
+    "target": [
+      "C",
+      "CB",
+      "NA"
+    ],
+    "source_file": "/mnt/d/data/DNA DoS/computation/DNA_adducts_OL21_20261008/build_20261012/completion/reference_8OG.frcmod",
+    "source_types": [
+      "C",
+      "CB",
+      "NA"
+    ],
+    "reason": "published Manchester/Bryce 8OG local term; OL21 scaffold and new RESP retained",
+    "actual_values": [
+      70.0,
+      130.0
+    ],
+    "basis": "force-field analogy"
+  },
+  {
+    "section": "ANGLE",
+    "target": [
+      "CB",
+      "CB",
+      "NA"
+    ],
+    "source_file": "/mnt/d/data/DNA DoS/computation/DNA_adducts_OL21_20261008/build_20261012/completion/reference_8OG.frcmod",
+    "source_types": [
+      "CB",
+      "CB",
+      "NA"
+    ],
+    "reason": "published Manchester/Bryce 8OG local term; OL21 scaffold and new RESP retained",
+    "actual_values": [
+      70.0,
+      111.3
+    ],
+    "basis": "force-field analogy"
+  },
+  {
+    "section": "ANGLE",
+    "target": [
+      "CB",
+      "NA",
+      "CK"
+    ],
+    "source_file": "/mnt/d/data/DNA DoS/computation/DNA_adducts_OL21_20261008/build_20261012/completion/reference_8OG.frcmod",
+    "source_types": [
+      "CB",
+      "NA",
+      "CK"
+    ],
+    "reason": "published Manchester/Bryce 8OG local term; OL21 scaffold and new RESP retained",
+    "actual_values": [
+      70.0,
+      103.8
+    ],
+    "basis": "force-field analogy"
+  },
+  {
+    "section": "ANGLE",
+    "target": [
+      "CB",
+      "NA",
+      "H"
+    ],
+    "source_file": "/mnt/d/data/DNA DoS/computation/DNA_adducts_OL21_20261008/build_20261012/completion/reference_8OG.frcmod",
+    "source_types": [
+      "CB",
+      "NA",
+      "H"
+    ],
+    "reason": "published Manchester/Bryce 8OG local term; OL21 scaffold and new RESP retained",
+    "actual_values": [
+      30.0,
+      120.0
+    ],
+    "basis": "force-field analogy"
+  },
+  {
+    "section": "ANGLE",
+    "target": [
+      "CK",
+      "NA",
+      "H"
+    ],
+    "source_file": "/mnt/d/data/DNA DoS/computation/DNA_adducts_OL21_20261008/build_20261012/completion/reference_8OG.frcmod",
+    "source_types": [
+      "CK",
+      "NA",
+      "H"
+    ],
+    "reason": "published Manchester/Bryce 8OG local term; OL21 scaffold and new RESP retained",
+    "actual_values": [
+      30.0,
+      120.0
+    ],
+    "basis": "force-field analogy"
+  },
+  {
+    "section": "ANGLE",
+    "target": [
+      "N*",
+      "CK",
+      "NA"
+    ],
+    "source_file": "/mnt/d/data/DNA DoS/computation/DNA_adducts_OL21_20261008/build_20261012/completion/reference_8OG.frcmod",
+    "source_types": [
+      "N*",
+      "CK",
+      "NA"
+    ],
+    "reason": "published Manchester/Bryce 8OG local term; OL21 scaffold and new RESP retained",
+    "actual_values": [
+      70.0,
+      115.4
+    ],
+    "basis": "force-field analogy"
+  },
+  {
+    "section": "ANGLE",
+    "target": [
+      "N*",
+      "CK",
+      "O"
+    ],
+    "source_file": "/mnt/d/data/DNA DoS/computation/DNA_adducts_OL21_20261008/build_20261012/completion/reference_8OG.frcmod",
+    "source_types": [
+      "N*",
+      "CK",
+      "O"
+    ],
+    "reason": "published Manchester/Bryce 8OG local term; OL21 scaffold and new RESP retained",
+    "actual_values": [
+      80.0,
+      120.9
+    ],
+    "basis": "force-field analogy"
+  },
+  {
+    "section": "ANGLE",
+    "target": [
+      "NA",
+      "CK",
+      "O"
+    ],
+    "source_file": "/mnt/d/data/DNA DoS/computation/DNA_adducts_OL21_20261008/build_20261012/completion/reference_8OG.frcmod",
+    "source_types": [
+      "NA",
+      "CK",
+      "O"
+    ],
+    "reason": "published Manchester/Bryce 8OG local term; OL21 scaffold and new RESP retained",
+    "actual_values": [
+      80.0,
+      120.6
+    ],
+    "basis": "force-field analogy"
+  },
+  {
+    "section": "DIHE",
+    "target": [
+      "X",
+      "CB",
+      "NA",
+      "X"
+    ],
+    "source_file": "/mnt/d/data/DNA DoS/computation/DNA_adducts_OL21_20261008/build_20261012/completion/reference_8OG.frcmod",
+    "source_types": [
+      "X",
+      "CB",
+      "NA",
+      "X"
+    ],
+    "reason": "published Manchester/Bryce 8OG local term; OL21 scaffold and new RESP retained",
+    "actual_values": [
+      [
+        1.5,
+        180.0,
+        2
+      ]
+    ],
+    "basis": "force-field analogy"
+  },
+  {
+    "section": "DIHE",
+    "target": [
+      "X",
+      "CK",
+      "NA",
+      "X"
+    ],
+    "source_file": "/mnt/d/data/DNA DoS/computation/DNA_adducts_OL21_20261008/build_20261012/completion/reference_8OG.frcmod",
+    "source_types": [
+      "X",
+      "CK",
+      "NA",
+      "X"
+    ],
+    "reason": "published Manchester/Bryce 8OG local term; OL21 scaffold and new RESP retained",
+    "actual_values": [
+      [
+        1.4,
+        180.0,
+        2
+      ]
+    ],
+    "basis": "force-field analogy"
+  },
+  {
+    "section": "IMPROPER",
+    "target": [
+      "NA",
+      "N*",
+      "CK",
+      "O"
+    ],
+    "source_file": "/mnt/d/data/DNA DoS/computation/DNA_adducts_OL21_20261008/build_20261012/completion/reference_8OG.frcmod",
+    "source_types": [
+      "N*",
+      "NA",
+      "CK",
+      "O"
+    ],
+    "reason": "published Manchester/Bryce 8OG local term; OL21 scaffold and new RESP retained",
+    "actual_values": [
+      10.5,
+      180.0,
+      2
+    ],
+    "basis": "force-field analogy"
+  }
+]

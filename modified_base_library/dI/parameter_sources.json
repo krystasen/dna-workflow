@@ -1,0 +1,60 @@
+[
+  {
+    "section": "BOND",
+    "target": [
+      "CA",
+      "H5"
+    ],
+    "source_file": "parm10.dat",
+    "source_types": [
+      "CA",
+      "HA"
+    ],
+    "reason": "aromatic C-H bond with inherited H5 LJ",
+    "actual_values": [
+      367.0,
+      1.08
+    ],
+    "basis": "force-field analogy"
+  },
+  {
+    "section": "ANGLE",
+    "target": [
+      "H5",
+      "CA",
+      "NA"
+    ],
+    "source_file": "gaff2.dat",
+    "source_types": [
+      "h5",
+      "cd",
+      "ns"
+    ],
+    "reason": "hypoxanthine C2-H next to N1-H",
+    "actual_values": [
+      49.12,
+      115.99
+    ],
+    "basis": "force-field analogy"
+  },
+  {
+    "section": "ANGLE",
+    "target": [
+      "H5",
+      "CA",
+      "NC"
+    ],
+    "source_file": "gaff2.dat",
+    "source_types": [
+      "h5",
+      "cd",
+      "nc"
+    ],
+    "reason": "hypoxanthine C2-H next to pyridine N3",
+    "actual_values": [
+      48.89,
+      125.29
+    ],
+    "basis": "force-field analogy"
+  }
+]

@@ -1,0 +1,26 @@
+{
+  "status": "RESP_complete",
+  "group": "modified",
+  "conformers": [
+    "O6CMdG_A_000",
+    "O6CMdG_B_180"
+  ],
+  "atoms_per_conformer": 37,
+  "total_charge_e": -1.0000009999999997,
+  "all_charge_constraints_passed": true,
+  "per_conformer_quality": [
+    {
+      "model": "O6CMdG_A_000",
+      "RMS_atomic_units": 0.004366076991354267,
+      "relative_RMS": 0.042137961775567404
+    },
+    {
+      "model": "O6CMdG_B_180",
+      "RMS_atomic_units": 0.004708039892604961,
+      "relative_RMS": 0.042734592153667525
+    }
+  ],
+  "pooled_relative_RMS": 0.04244161786836627,
+  "pooled_RMS_atomic_units": 0.004532254905495956,
+  "MD_topology_ready": false
+}

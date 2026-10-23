@@ -1,0 +1,253 @@
+[
+  {
+    "section": "BOND",
+    "target_types": [
+      "CQ",
+      "N2"
+    ],
+    "source_file": "parm10.dat",
+    "source_types": [
+      "CA",
+      "N2"
+    ],
+    "values": {
+      "k_kcal_mol_A2": 481.0,
+      "req_A": 1.34
+    },
+    "reason": "exocyclic amino bond on purine C2",
+    "basis": "force-field analogy; not newly QM fitted"
+  },
+  {
+    "section": "BOND",
+    "target_types": [
+      "CA",
+      "OS"
+    ],
+    "source_file": "gaff2.dat",
+    "source_types": [
+      "ca",
+      "os"
+    ],
+    "values": {
+      "k_kcal_mol_A2": 343.34,
+      "req_A": 1.3688
+    },
+    "reason": "aromatic carbon-ether oxygen, not carbonyl/hydroxyl",
+    "basis": "force-field analogy; not newly QM fitted"
+  },
+  {
+    "section": "ANGLE",
+    "target_types": [
+      "N2",
+      "CQ",
+      "NC"
+    ],
+    "source_file": "parm10.dat",
+    "source_types": [
+      "N2",
+      "CA",
+      "NC"
+    ],
+    "values": {
+      "k_kcal_mol_rad2": 70.0,
+      "theta_deg": 119.3
+    },
+    "reason": "C2 ring with exocyclic amino",
+    "basis": "force-field analogy; not newly QM fitted"
+  },
+  {
+    "section": "ANGLE",
+    "target_types": [
+      "CQ",
+      "N2",
+      "H"
+    ],
+    "source_file": "parm10.dat",
+    "source_types": [
+      "CA",
+      "N2",
+      "H"
+    ],
+    "values": {
+      "k_kcal_mol_rad2": 50.0,
+      "theta_deg": 120.0
+    },
+    "reason": "amino hydrogen angle",
+    "basis": "force-field analogy; not newly QM fitted"
+  },
+  {
+    "section": "ANGLE",
+    "target_types": [
+      "NC",
+      "CA",
+      "OS"
+    ],
+    "source_file": "gaff2.dat",
+    "source_types": [
+      "nb",
+      "ca",
+      "os"
+    ],
+    "values": {
+      "k_kcal_mol_rad2": 85.47,
+      "theta_deg": 119.76
+    },
+    "reason": "ring N-aromatic C-ether O",
+    "basis": "force-field analogy; not newly QM fitted"
+  },
+  {
+    "section": "ANGLE",
+    "target_types": [
+      "CA",
+      "OS",
+      "CT"
+    ],
+    "source_file": "gaff2.dat",
+    "source_types": [
+      "ca",
+      "os",
+      "c3"
+    ],
+    "values": {
+      "k_kcal_mol_rad2": 88.26,
+      "theta_deg": 118.39
+    },
+    "reason": "aryl-O-methyl ether",
+    "basis": "force-field analogy; not newly QM fitted"
+  },
+  {
+    "section": "ANGLE",
+    "target_types": [
+      "CB",
+      "CA",
+      "OS"
+    ],
+    "source_file": "gaff2.dat",
+    "source_types": [
+      "ca",
+      "ca",
+      "os"
+    ],
+    "values": {
+      "k_kcal_mol_rad2": 79.0,
+      "theta_deg": 119.11
+    },
+    "reason": "ring C-aromatic C-ether O",
+    "basis": "force-field analogy; not newly QM fitted"
+  },
+  {
+    "section": "DIHE",
+    "target_types": [
+      "NC",
+      "CQ",
+      "N2",
+      "H"
+    ],
+    "source_file": "parm10.dat",
+    "source_types": [
+      "X",
+      "CA",
+      "N2",
+      "X"
+    ],
+    "values": {
+      "phi_k_kcal_mol": 2.4,
+      "phase_deg": 180.0,
+      "periodicity": 2
+    },
+    "reason": "purine amino planar conjugation",
+    "basis": "force-field analogy; not newly QM fitted"
+  },
+  {
+    "section": "DIHE",
+    "target_types": [
+      "NC",
+      "CA",
+      "OS",
+      "CT"
+    ],
+    "source_file": "gaff2.dat",
+    "source_types": [
+      "X",
+      "ca",
+      "os",
+      "X"
+    ],
+    "values": {
+      "phi_k_kcal_mol": 0.9,
+      "phase_deg": 180.0,
+      "periodicity": 2
+    },
+    "reason": "aryl ether torsion generic N-side",
+    "basis": "force-field analogy; not newly QM fitted"
+  },
+  {
+    "section": "DIHE",
+    "target_types": [
+      "CB",
+      "CA",
+      "OS",
+      "CT"
+    ],
+    "source_file": "gaff2.dat",
+    "source_types": [
+      "ca",
+      "ca",
+      "os",
+      "c3"
+    ],
+    "values": {
+      "phi_k_kcal_mol": 1.66,
+      "phase_deg": 180.0,
+      "periodicity": 2
+    },
+    "reason": "aryl ether torsion carbon-side specific term",
+    "basis": "force-field analogy; not newly QM fitted"
+  },
+  {
+    "section": "IMPROPER",
+    "target_types": [
+      "N2",
+      "NC",
+      "CQ",
+      "NC"
+    ],
+    "source_file": "parm10.dat",
+    "source_types": [
+      "N2",
+      "NA",
+      "CA",
+      "NC"
+    ],
+    "values": {
+      "phi_k_kcal_mol": 1.1,
+      "phase_deg": 180.0,
+      "periodicity": 2
+    },
+    "reason": "C2 trigonal planarity, guanine parent",
+    "basis": "force-field analogy; not newly QM fitted"
+  },
+  {
+    "section": "IMPROPER",
+    "target_types": [
+      "CB",
+      "NC",
+      "CA",
+      "OS"
+    ],
+    "source_file": "parm10.dat",
+    "source_types": [
+      "CB",
+      "N2",
+      "CA",
+      "NC"
+    ],
+    "values": {
+      "phi_k_kcal_mol": 1.1,
+      "phase_deg": 180.0,
+      "periodicity": 2
+    },
+    "reason": "C6 trigonal planarity, purine parent",
+    "basis": "force-field analogy; not newly QM fitted"
+  }
+]

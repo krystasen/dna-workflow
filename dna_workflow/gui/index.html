@@ -377,7 +377,7 @@
           <span class="step-number">03</span><span><span class="step-title">VMD / 构型</span><span class="step-caption">手工核验帧</span></span>
         </button>
         <button class="step" id="tab-gaussian" role="tab" aria-selected="false" aria-controls="panel-gaussian" tabindex="-1" data-tab="gaussian">
-          <span class="step-number">04</span><span><span class="step-title">Gaussian</span><span class="step-caption">准备量化输入</span></span>
+          <span class="step-number">04</span><span><span class="step-title">量化计算</span><span class="step-caption">Gaussian / ORCA</span></span>
         </button>
         <button class="step" id="tab-results" role="tab" aria-selected="false" aria-controls="panel-results" tabindex="-1" data-tab="results">
           <span class="step-number">05</span><span><span class="step-title">DoS 与结果</span><span class="step-caption">追踪产物边界</span></span>
@@ -403,8 +403,15 @@
                     <div class="field full sequence-field"><label for="sequence-a">A 链（5′→3′）</label><input class="mono-input" id="sequence-a" name="sequence" value="GATGATGGTTGCTGGAGTTGGTGTGAA" autocomplete="off" spellcheck="false" required></div>
                     <div class="field full sequence-field"><label for="sequence-b" id="partner-label">B 链（自动反向互补，5′→3′）</label><input class="mono-input" id="sequence-b" name="partner" value="TTCACACCAACTCCAGCAACCATCATC" autocomplete="off" spellcheck="false" readonly aria-describedby="partner-help"><p class="field-help" id="partner-help">由 A 链实时生成；如需自定义 B 链，请选择“指定 B 链”。</p></div>
                     <fieldset class="field full" style="border:0;padding:0;margin:0"><legend class="field-label">构型模式</legend><div class="radio-set"><label><input type="radio" name="mode" value="single">单链</label><label><input type="radio" name="mode" value="duplex" checked>双链 · 自动反向互补</label><label><input type="radio" name="mode" value="partner">双链 · 指定 B 链</label></div></fieldset>
-                    <div class="field"><label for="preset">碱基预设</label><select id="preset" name="preset"><option value="normal" selected>正常序列</option><option value="o6meg">O6‑MeG（暂不支持）</option></select></div>
+                    <div class="field"><label for="preset">非标准碱基</label><select id="preset" name="preset"><option value="normal" selected>不添加修饰</option></select></div>
                     <div class="field"><label for="task-name">新任务名</label><input id="task-name" class="mono-input" value="dna_27bp" placeholder="例如 dna_27bp" autocomplete="off" required></div>
+                  </div>
+                  <div id="modification-fields" class="sequence-preview" hidden>
+                    <div class="field-grid">
+                      <div class="field"><label for="modification-chain">修饰链</label><select id="modification-chain"><option value="A">A 链</option><option value="B">B 链</option></select></div>
+                      <div class="field"><label for="modification-position">位置 · 从5′端计数</label><input id="modification-position" type="number" min="1" step="1" value="14" aria-describedby="modification-help"></div>
+                    </div>
+                    <p id="modification-help" class="field-help" role="status" style="margin-top:10px">保留原始 A/C/G/T 序列；通过修饰类型、链和位置替换碱基，配对链不自动改变。</p>
                   </div>
                   <div class="sequence-metrics" aria-live="polite"><div><span id="metric-length">—</span><small>长度</small></div><div><span id="metric-gc">—</span><small>A 链 GC</small></div><div><span id="metric-modification">—</span><small>修饰标记</small></div></div>
                   <div class="callout" id="preset-notice" data-tone="teal" hidden aria-live="polite"><span>注</span><span><strong>正常预设。</strong>请在开始 MD 前确认链方向、末端和修饰方案。</span></div>
@@ -432,7 +439,7 @@
                 </article>
               </form>
             </div>
-            <aside class="task-summary"><div class="summary-label"><span></span>当前任务</div><h4 id="summary-name">尚未创建</h4><p id="summary-mode">双链 · 自动反向互补</p><div class="job-path" id="job-path" title="尚未打开任务">尚未打开任务</div><dl><dt>力场</dt><dd id="forcefield-summary">CHARMM36 .ff 目录</dd><dt>修饰</dt><dd>O6‑MeG 暂不支持</dd><dt>生产 MD</dt><dd>不自动运行 100 ns</dd><dt>DoS</dt><dd>Gaussian V2 · 超算 GPU 交接</dd></dl><code id="preview-a" hidden>GATGATGGTTGCTGGAGTTGGTGTGAA</code><code id="preview-b" hidden>TTCACACCAACTCCAGCAACCATCATC</code></aside>
+            <aside class="task-summary"><div class="summary-label"><span></span>当前任务</div><h4 id="summary-name">尚未创建</h4><p id="summary-mode">双链 · 自动反向互补</p><div class="job-path" id="job-path" title="尚未打开任务">尚未打开任务</div><dl><dt>力场</dt><dd id="forcefield-summary">CHARMM36 .ff 目录</dd><dt>修饰</dt><dd id="modification-summary">无</dd><dt>生产 MD</dt><dd>不自动运行 100 ns</dd><dt>DoS</dt><dd>Gaussian V2 · 超算 GPU 交接</dd></dl><code id="preview-a" hidden>GATGATGGTTGCTGGAGTTGGTGTGAA</code><code id="preview-b" hidden>TTCACACCAACTCCAGCAACCATCATC</code></aside>
           </div>
         </section>
 
@@ -503,7 +510,7 @@
         </section>
 
         <section id="panel-gaussian" role="tabpanel" aria-labelledby="tab-gaussian" hidden>
-          <div class="panel-head"><div><h3>Gaussian</h3><p>生成或交接 Gaussian 准备任务。该界面不自动提交超算作业。</p></div><div class="job-path" id="gaussian-job-path">尚未打开任务</div></div>
+          <div class="panel-head"><div><h3>量化计算</h3><p>选择 Gaussian 或 ORCA 生成输入，再自行提交超算。</p></div><div class="job-path" id="gaussian-job-path">尚未打开任务</div></div>
           <div class="layout-two">
             <div>
             <article class="card">
@@ -518,31 +525,34 @@
               <div class="callout"><span>边界</span><span>显式溶剂 EM 会改变原 MD 构型，不保证改善 SCF；它始终是独立子作业，不能默默替代原始帧。</span></div>
               <p id="relax-prepare-result" class="field-help" role="status">提交后生成 em.tpr；计算资源仍为超算。</p>
               <div class="action-row"><button class="button primary" type="button" data-submit data-action="prepare_relax"><span class="button-label">生成 EM TPR</span></button></div>
-              <div class="field" style="margin-top:20px"><label for="relax-child-job">回传后的 child_job 目录</label><input id="relax-child-job" class="mono-input" placeholder="prepare_relax 返回的子任务目录" autocomplete="off"><p class="field-help">核验将导出 <span class="mono">relaxed_dna.pdb</span>；成功后仅回填 Gaussian 输入，不自动运行 Gaussian。</p></div>
+              <div class="field" style="margin-top:20px"><label for="relax-child-job">回传后的 child_job 目录</label><input id="relax-child-job" class="mono-input" placeholder="prepare_relax 返回的子任务目录" autocomplete="off"><p class="field-help">核验将导出 <span class="mono">relaxed_dna.pdb</span>，回填到量化输入，可用于 Gaussian 或 ORCA。</p></div>
               <p id="relax-verify-result" class="field-help" role="status">等待超算完成 EM 并回传。</p>
               <div class="action-row"><button class="button" type="button" data-submit data-action="verify_relax"><span class="button-label">核验 EM 回传</span></button></div>
             </article>
             <article class="card">
-              <div class="card-title"><div><h4>量化计算准备</h4><p>所有字段传递给 <span class="mono">gaussian</span> action；具体 route 与提交策略由后端确定。</p></div></div>
+              <div class="card-title"><div><h4>量化计算准备</h4><p>选用 Gaussian 或 ORCA，对同一份已确认构型进行单点计算。</p></div></div>
               <div class="field-grid">
+                <div class="field full"><label for="quantum-engine">量化程序</label><select id="quantum-engine"><option value="gaussian" selected>Gaussian · 现有 F/S 流程</option><option value="orca">ORCA 6.0.1 · 完整 MO / S 流程</option></select></div>
                 <div class="field full"><label for="gaussian-pdb">选定 PDB 完整路径</label><div class="input-row"><input id="gaussian-pdb" class="mono-input" placeholder="选择已经确认的 selected.pdb" autocomplete="off"><button class="button quiet" type="button" data-submit data-browse="file" data-target="gaussian-pdb"><span class="button-label">选择 PDB</span></button></div><p class="field-help">按后端契约作为 <span class="mono">frame</span> 字段提交，值为完整 PDB 路径而非帧号。</p></div>
-                <div class="field full"><label for="gaussian-job">来源任务目录（可选）</label><input id="gaussian-job" class="mono-input" placeholder="EM 子任务目录，用于模型归属" autocomplete="off"><p class="field-help">仅作为 <span class="mono">gaussian_job</span> 归属字段，不改变原始 MD 任务。</p></div>
+                <div class="field full"><label for="gaussian-job">来源任务目录（可选）</label><input id="gaussian-job" class="mono-input" placeholder="EM 子任务目录，用于模型归属" autocomplete="off"><p class="field-help">代表构型 EM 的子任务目录，核验通过后自动回填。</p></div>
                 <div class="field"><label for="gaussian-time">time_ps</label><input id="gaussian-time" type="number" min="0" step="any" placeholder="对应真实时间（可选）"></div>
                 <div class="field"><label for="gaussian-nproc">nproc</label><input id="gaussian-nproc" type="number" min="1" value="8"></div>
-                <div class="field"><label for="gaussian-memory">memory</label><input id="gaussian-memory" placeholder="例如 16GB"></div>
+                <div class="field"><label for="gaussian-memory">总内存预算</label><input id="gaussian-memory" placeholder="例如 16GB"></div>
+                <div class="field full" id="orca-solvent-field" hidden><label for="orca-solvent">ORCA 隐式水模型</label><select id="orca-solvent"><option value="cpcm">CPCM(Water)</option><option value="smd">SMD water</option></select></div>
                 <div class="field"><label for="dispersion">dispersion</label><select id="dispersion"><option value="none">无（当前复现基线）</option><option value="GD3BJ">D3(BJ)</option><option value="GD3">D3</option></select></div>
-                <div class="field full"><label for="gaussian-output">输出路径</label><div class="input-row"><input id="gaussian-output" class="mono-input" placeholder="选择 Gaussian 输出目录或文件前缀" autocomplete="off"><button class="button quiet" type="button" data-submit data-browse="directory" data-target="gaussian-output"><span class="button-label">选择目录</span></button></div></div>
+                <div class="field full"><label for="gaussian-output">新建输入目录</label><div class="input-row"><input id="gaussian-output" class="mono-input" placeholder="选择新的量化输入目录" autocomplete="off"><button class="button quiet" type="button" data-submit data-browse="directory" data-target="gaussian-output"><span class="button-label">选择目录</span></button></div></div>
               </div>
-              <div class="callout"><span>边界</span><span><strong>不自动提交超算。</strong>本动作只用于后端定义的 Gaussian 准备；提交、调度资源和实际计算由人工复核后完成。</span></div>
+              <p class="field-help" id="quantum-method-note">Gaussian：B3LYP/6-31G(d,p)、6D、IEFPCM water，保留原有矩阵输出。</p>
+              <div class="callout"><span>计算</span><span>生成输入后自行提交超算。ORCA 总内存自动换算为每进程 %maxcore，并预留25%开销。</span></div>
               <div class="action-row"><button class="button primary" id="gaussian-action" type="button" data-submit data-action="gaussian"><span class="button-label">准备 Gaussian 输入</span></button></div>
             </article>
             </div>
-            <aside class="side-note"><h4>输入文件</h4><p>选择已经确认的 PDB 文件，再生成 Gaussian 输入。</p><dl><dt>自动提交</dt><dd>不提供</dd><dt>输入</dt><dd>PDB 完整路径</dd><dt>结果</dt><dd>转至 DoS 与结果追踪</dd></dl></aside>
+            <aside class="side-note"><h4>输入文件</h4><p>Gaussian 输出 dna.gjf；ORCA 输出 dna.inp 和 orca.json.conf。两条路径分别保存。</p><dl><dt>输入</dt><dd>已确认的完整 DNA PDB</dd><dt>结果</dt><dd>转至 DoS 与结果追踪</dd></dl></aside>
           </div>
         </section>
 
         <section id="panel-results" role="tabpanel" aria-labelledby="tab-results" hidden>
-          <div class="panel-head"><div><h3>DoS 与结果</h3><p>从 Gaussian 矩阵到全空间二维 DoS。本机准备计算包，超算求解，回传后出图。</p></div><div class="job-path" id="results-job-path">尚未打开任务</div></div>
+          <div class="panel-head"><div><h3>DoS 与结果</h3><p>Gaussian / ORCA 共用 V2 全空间二维 DoS。本机打包，超算求解，回传后出图。</p><button type="button" id="dos-load-existing" class="button" data-submit>载入已有计算包 / 结果</button></div><div class="job-path" id="results-job-path">尚未打开任务</div></div>
           <ol class="dos-steps" aria-label="DoS 计算进度">
             <li id="dos-step-inspect"><strong>01 · 导入矩阵</strong><span>核对体系与映射</span></li>
             <li id="dos-step-package"><strong>02 · GPU 计算包</strong><span>交给超算执行</span></li>
@@ -552,8 +562,9 @@
           <div class="dos-layout">
             <div>
               <article class="card">
-                <div class="card-title"><div><h4><span class="dos-number">01</span>Gaussian 数据</h4><p>读取实际 AO 数、原子顺序和 nucleotide / bp 映射。</p></div><span id="dos-inspect-tag" class="tag">待导入</span></div>
-                <div class="field"><label for="dos-source">Gaussian 矩阵目录</label><div class="input-row"><input id="dos-source" class="mono-input" placeholder="选择 gaussian_input 目录" autocomplete="off"><button type="button" class="button quiet" data-submit data-browse="directory" data-target="dos-source">选择目录</button></div><p class="field-help">包含 .mat、.gjf、atom_mapping.csv 和对应 PDB。可直接接入已有结果。</p></div>
+                <div class="card-title"><div><h4><span class="dos-number">01</span>量化计算数据</h4><p>读取实际 AO 数、原子顺序和 nucleotide / bp 映射。</p></div><span id="dos-inspect-tag" class="tag">待导入</span></div>
+                <div class="field"><label for="dos-engine">数据来源</label><select id="dos-engine"><option value="gaussian" selected>Gaussian · F/S 矩阵</option><option value="orca">ORCA · JSON 完整 MO / S</option></select></div>
+                <div class="field"><label for="dos-source">数据目录</label><div class="input-row"><input id="dos-source" class="mono-input" placeholder="选择 gaussian_input 目录" autocomplete="off"><button type="button" class="button quiet" data-submit data-browse="directory" data-target="dos-source">选择目录</button></div><p class="field-help" id="dos-source-help">包含 .mat、.gjf、atom_mapping.csv 和对应 PDB。可直接接入已有结果。</p></div>
                 <div class="dos-metrics" aria-live="polite"><div><strong id="dos-state-count">—</strong><span>全空间态数</span></div><div><strong id="dos-bp-count">—</strong><span>bp / 位置</span></div><div><strong id="dos-atom-count">—</strong><span>原子数</span></div></div>
                 <p id="dos-contact-info" class="dos-note">检查后显示左右接触原子和骨架边界数。</p>
                 <details class="setup-details"><summary><span>本机 Python</span><span>矩阵提取与绘图</span></summary><div class="details-body"><div class="field"><label for="dos-python">科学计算 Python 路径</label><div class="input-row"><input id="dos-python" class="mono-input" autocomplete="off"><button type="button" class="button quiet" data-submit data-browse="file" data-target="dos-python">选择文件</button></div><p class="field-help">需要 NumPy、SciPy、Matplotlib。本机不需要 CUDA。</p></div></div></details>
@@ -631,7 +642,7 @@
         { key: 'npt', label: 'NPT', predecessor: 'nvt' },
         { key: 'md', label: 'MD', predecessor: 'npt' }
       ];
-      const TITLES = { sequence: '序列与任务', md: 'WSL MD 准备', vmd: 'VMD / 构型', gaussian: 'Gaussian', results: 'DoS 与结果' };
+      const TITLES = { sequence: '序列与任务', md: 'WSL MD 准备', vmd: 'VMD / 构型', gaussian: '量化计算', results: 'DoS 与结果' };
       const API = {
         state: '/api/state', environment: '/api/environment', jobCreate: '/api/job/create', jobOpen: '/api/job/open', action: '/api/action', browse: '/api/browse'
       };
@@ -937,16 +948,39 @@
         return joinPath(joinPath(results, 'figures'), `figure3_${stamp}`);
       }
 
+      function dosState() {
+        const engine = $('#dos-engine').value;
+        return app.state.job?.dos_by_engine?.[engine] || (engine === 'gaussian' ? app.state.job?.dos : null) || {};
+      }
+
+      function updateQuantumEngine() {
+        const engine = $('#quantum-engine').value;
+        const orca = engine === 'orca';
+        $('#orca-solvent-field').hidden = !orca;
+        $('#gaussian-action').dataset.action = engine;
+        $('#gaussian-action .button-label').textContent = orca ? '准备 ORCA 输入' : '准备 Gaussian 输入';
+        $('#quantum-method-note').textContent = orca ? 'ORCA：B3LYP/6-31G(d,p)、球谐5D、RIJCOSX；计算后运行 orca_2json dna.gbw -json 导出完整 MO 和 S。' : 'Gaussian：B3LYP/6-31G(d,p)、6D、IEFPCM water，保留原有矩阵输出。';
+        NEW_DIRECTORY_TARGETS['gaussian-output'] = [orca ? 'ORCA 输出目录' : 'Gaussian 输出目录', `${engine}_input`];
+        const output = $('#gaussian-output');
+        if (app.state.job?.path && !output.dataset.dirty) output.value = joinPath(app.state.job.path, `${engine}_input`);
+      }
+
       function renderDos() {
         const job = app.state.job;
-        const state = job?.dos || {};
-        if (app.dosJob !== job?.path) {
-          app.dosJob = job?.path;
+        if (app.dosOwner !== job?.path) {
+          app.dosOwner = job?.path;
+          $('#dos-engine').value = job?.dos_engine || 'gaussian';
+        }
+        const engine = $('#dos-engine').value;
+        const state = dosState();
+        const identity = `${job?.path}|${engine}`;
+        if (app.dosJob !== identity) {
+          app.dosJob = identity;
           $$('#panel-results input').forEach(input => { input.value = input.defaultValue; delete input.dataset.dirty; });
           app.appliedDosTask = null;
         }
         const task = app.state.task;
-        if (task?.status === 'succeeded' && task.result?.dos && app.appliedDosTask !== task.id) {
+        if (task?.status === 'succeeded' && task.result?.dos && (task.result.engine || 'gaussian') === engine && app.appliedDosTask !== task.id) {
           app.appliedDosTask = task.id;
           if (task.action === 'dos_inspect' && !state.package) {
             for (const id of ['dos-package', 'dos-results', 'dos-plot-output']) { $(`#${id}`).value = ''; delete $(`#${id}`).dataset.dirty; }
@@ -959,23 +993,25 @@
           if (task.action === 'dos_verify' && state.results) setInputValue('dos-plot-output', newFigurePath(state.results));
           if (task.action === 'dos_plot' && state.results) setInputValue('dos-plot-output', newFigurePath(state.results));
         }
-        setInputIfPristine('dos-source', state.source || (job?.path ? joinPath(job.path, 'gaussian_input') : ''));
+        $('#dos-source-help').textContent = engine === 'orca' ? '包含 dna.json、内嵌坐标的 dna.inp、atom_mapping.csv 和 dna_selected.pdb。JSON 需完整 MO、基组和 S-Matrix；本机 Python 另需 ijson。' : '包含 .mat、.gjf、atom_mapping.csv 和对应 PDB。可直接接入已有结果。';
+        setInputIfPristine('dos-source', state.source || (job?.path ? joinPath(job.path, `${engine}_input`) : ''));
         setInputIfPristine('dos-python', state.dos_python || app.state.defaults?.dos_python);
         setInputIfPristine('dos-temperature', state.parameters?.temperature_K ?? job?.config?.temperature_K ?? 300);
         $$('[data-dos-param]').forEach(input => setInputIfPristine(input.id, state.parameters?.[input.dataset.dosParam]));
         const inspected = sameLocalPath($('#dos-source').value.trim(), state.inspection?.source) ? state.inspection : null;
-        const suggested = inspected && job?.path ? joinPath(joinPath(job.path, 'dos_v2'), `${splitPath(job.path).name}_dos_v2_${inspected.state_count}`) : '';
+        const suggested = inspected && job?.path ? joinPath(joinPath(job.path, engine === 'orca' ? 'dos_v2_orca' : 'dos_v2'), `${splitPath(job.path).name}_${engine === 'orca' ? 'orca_' : ''}dos_v2_${inspected.state_count}`) : '';
         setInputIfPristine('dos-package', state.package || suggested);
         setInputIfPristine('dos-results', state.results || (state.package ? joinPath(state.package, 'results_c64') : ''));
         if (!$('#dos-plot-output').value && $('#dos-results').value) setInputIfPristine('dos-plot-output', newFigurePath($('#dos-results').value));
-        setText('dos-state-count', inspected?.state_count?.toLocaleString(), '—');
-        setText('dos-bp-count', inspected?.base_pair_count, '—');
-        setText('dos-atom-count', inspected?.atom_count?.toLocaleString(), '—');
+        const summary = inspected || state.imported;
+        setText('dos-state-count', summary?.state_count?.toLocaleString(), '—');
+        setText('dos-bp-count', summary?.base_pair_count, '—');
+        setText('dos-atom-count', summary?.atom_count?.toLocaleString(), '—');
         const inspectTag = $('#dos-inspect-tag');
         inspectTag.textContent = inspected ? '映射通过' : '待导入';
         inspectTag.dataset.state = inspected ? 'ready' : 'pending';
         setText('dos-contact-info', inspected ? `${inspected.contacts.map(contact => `${contact.side === 'left' ? '左' : '右'}：${contact.chain}${contact.position} ${contact.base} · ${contact.atom_name}（原子 ${contact.anchor_atom_1based}）`).join('；')}。${inspected.expected_boundary_candidates} 条 O–P 边界待按本体系识别候选。` : '', '检查后显示左右接触原子和骨架边界数。');
-        setText('dos-inspect-status', inspected ? `${inspected.nucleotide_count} 个 nucleotide；全部 AO 恰好归属一次。矩阵 / 坐标最大差异 ${inspected.geometry_mat_max_abs_A.toExponential(2)} Å。` : '', job ? '选择矩阵目录后点击检查。' : '请先打开 DNA 任务。');
+        setText('dos-inspect-status', inspected ? `${inspected.nucleotide_count} 个 nucleotide；全部 AO 恰好归属一次。矩阵 / 坐标最大差异 ${(inspected.geometry_json_max_abs_A ?? inspected.geometry_mat_max_abs_A).toExponential(2)} Å。` : '', job ? '选择矩阵目录后点击检查。' : '请先打开 DNA 任务。');
         setText('dos-memory-note', inspected ? `单张 float64 方阵约 ${inspected.float64_square_GiB.toFixed(2)} GiB。complex64 的 H、A、LU 合计约 ${inspected.c64_H_A_LU_GiB_excluding_workspace.toFixed(2)} GiB；CUDA 工作空间另计，先测一个能量点。` : '', '检查矩阵后显示方阵大小和显存估算。');
         const packaged = state.package_phase === 'exported';
         setText('dos-package-status', packaged ? `计算包已生成，等待超算回传。${state.package}` : '', inspected ? '准备提取必要矩阵；本机不执行大矩阵分解。' : '先检查输入矩阵。');
@@ -987,7 +1023,7 @@
         const figure = state.figure;
         $('#dos-preview').hidden = !figure;
         if (figure) {
-          const src = '/api/dos/preview?v=' + encodeURIComponent(figure.output);
+          const src = '/api/dos/preview?engine=' + engine + '&v=' + encodeURIComponent(figure.output);
           if ($('#dos-preview-image').getAttribute('src') !== src) $('#dos-preview-image').src = src;
           setText('dos-preview-caption', `上次生成：gateway ${figure.gateway.energy_eV.toFixed(4)} eV · ${figure.temperature_K} K · ${figure.base_pair_count} 个位置。`);
           setText('dos-plot-status', figure.output);
@@ -999,7 +1035,7 @@
       }
 
       function updateDosControls() {
-        const state = app.state.job?.dos || {};
+        const state = dosState();
         const busy = app.busy || app.state.task?.status === 'running';
         const inspected = sameLocalPath($('#dos-source').value, state.inspection?.source);
         const verified = state.verification?.complete && sameLocalPath($('#dos-results').value, state.results)
@@ -1030,6 +1066,12 @@
         if (task.action === 'verify_relax') {
           setInputValue('gaussian-pdb', result.frame);
           setInputValue('gaussian-job', result.gaussian_job);
+        }
+        if (['gaussian', 'orca'].includes(task.action) && task.status === 'succeeded' && result.output && app.appliedQuantumTask !== task.id) {
+          app.appliedQuantumTask = task.id;
+          $('#dos-engine').value = task.action;
+          renderDos();
+          setInputValue('dos-source', result.output);
         }
       }
 
@@ -1094,6 +1136,8 @@
         const model = config.md_model || (path ? 'charmm36_tip3p' : $('#md-model').value);
         setText('forcefield-summary', model === 'charmm36_tip3p' ? (config.forcefield || $('#forcefield').value) : `${model.split('_')[0].toUpperCase()} · OPC`, '力场待服务端确认');
         $('#summary-name').textContent = path ? splitPath(path).name : ($('#task-name').value.trim() || '新任务');
+        const modifications = path ? (config.modifications || []) : selectedModifications();
+        $('#modification-summary').textContent = modifications.length ? modifications.map(m => `${m.chain}${m.position} · ${m.base}`).join('、') : '无';
       }
 
       function updateControls() {
@@ -1103,8 +1147,10 @@
         $('#trajectory-status').textContent = !hasJob ? '请先打开任务。' : trajectory?.complete ? '处理完成：DNA整体居中，仅含DNA，可进入VMD。' : trajectory?.missing?.length ? `缺少：${trajectory.missing.join('、')}` : trajectory?.existing?.length ? '已有处理产物（旧版可能尚未居中），不会覆盖。请在新的任务副本中处理原始轨迹。' : '输入齐全。将按整个DNA组处理，双链不会被分别折回不同周期像。';
         $('#open-vmd').disabled = !hasVmdInputs() || app.busy;
         $('#gaussian-action').disabled = !hasJob || app.busy;
+        $('#quantum-engine').disabled = app.busy || app.state.task?.status === 'running';
+        $('#dos-engine').disabled = app.busy || app.state.task?.status === 'running';
         $('#open-folder').disabled = !hasJob || app.busy;
-        $('#create-job').disabled = app.busy || $('#preset').value === 'o6meg';
+        $('#create-job').disabled = app.busy || Boolean(modificationError());
         $$('[data-submit]').forEach(button => {
           if (button.id === 'create-job' || button.id === 'handoff' || button.id === 'open-vmd' || button.id === 'gaussian-action' || button.id === 'open-folder') return;
           button.disabled = app.busy;
@@ -1116,6 +1162,7 @@
       }
 
       function renderState() {
+        renderModificationOptions();
         renderTask();
         renderJobPath();
         renderEnvironment();
@@ -1191,7 +1238,7 @@
           if (frame !== undefined) payload.frame = frame;
           if (time_ps !== undefined) payload.time_ps = time_ps;
         }
-        if (action === 'gaussian') {
+        if (action === 'gaussian' || action === 'orca') {
           const frame = $('#gaussian-pdb').value.trim();
           const time_ps = numberOrUndefined('gaussian-time');
           const nproc = numberOrUndefined('gaussian-nproc');
@@ -1206,6 +1253,7 @@
           if (memory) payload.memory = memory;
           if (dispersion) payload.dispersion = dispersion;
           if (gaussian_job) payload.gaussian_job = gaussian_job;
+          if (action === 'orca') payload.solvent = $('#orca-solvent').value;
         }
         if (action === 'cluster') {
           payload.algorithm = $('#cluster-algorithm').value;
@@ -1227,6 +1275,7 @@
         }
         if (action === 'verify_relax') payload.child_job = $('#relax-child-job').value.trim();
         if (action in DOS_ACTION_LABELS) {
+          payload.engine = $('#dos-engine').value;
           payload.dos_python = $('#dos-python').value.trim();
           payload.source = $('#dos-source').value.trim();
           payload.package = $('#dos-package').value.trim();
@@ -1268,11 +1317,11 @@
           toast('Amber EM 子任务请显式选择 octahedron、cubic 或 triclinic；不支持 dodecahedron。', 'error');
           return false;
         }
-        if (action === 'gaussian') return requireValue('gaussian-pdb', '已确认的 PDB 完整路径');
+        if (action === 'gaussian' || action === 'orca') return requireValue('gaussian-pdb', '已确认的 PDB 完整路径');
         if (action === 'cluster') return requireValue('cluster-selection', 'selection') && requireValue('cluster-output', '新的聚类输出目录') && validNumber('cluster-cutoff', 'cutoff', 0.1) && validNumber('cluster-num', 'num', 1, true) && validNumber('cluster-first', 'first', 0, true) && validNumber('cluster-last', 'last', -1, true) && validNumber('cluster-step', 'step', 1, true);
         if (action === 'prepare_relax') return requireValue('relax-frame', '代表构型 PDB') && requireValue('relax-output', '新的 EM 子任务目录') && validNumber('relax-padding', 'padding', 0) && validNumber('relax-salt', 'salt', 0);
         if (action === 'verify_relax') return requireValue('relax-child-job', 'child_job 目录');
-        if (action === 'dos_inspect') return requireValue('dos-source', 'Gaussian 数据目录') && requireValue('dos-python', '科学计算 Python');
+        if (action === 'dos_inspect') return requireValue('dos-source', '量化数据目录') && requireValue('dos-python', '科学计算 Python');
         if (action === 'dos_export') {
           const invalid = $$('[data-dos-param]').find(input => input.value.trim() === '' || !input.checkValidity());
           if (invalid) {
@@ -1293,7 +1342,7 @@
         setBusy(button, true);
         try {
           const payload = actionPayload(action);
-          if (action === 'dos_open') payload.path = button.dataset.dosOpen === 'figure' ? app.state.job?.dos?.figure?.output : app.state.job?.dos?.package;
+          if (action === 'dos_open') payload.path = button.dataset.dosOpen === 'figure' ? dosState().figure?.output : dosState().package;
           const result = await api(API.action, { method: 'POST', body: JSON.stringify(payload) });
           app.state = { ...app.state, ...(result && result.job ? { job: result.job } : {}), ...(result && result.task ? { task: result.task } : {}) };
           applyTaskResult(result && result.task);
@@ -1308,23 +1357,51 @@
       }
 
       function updatePreset() {
-        const blocked = $('#preset').value === 'o6meg';
+        const enabled = $('#preset').value !== 'normal';
+        const entry = (app.state.modified_bases || []).find(row => row.id === $('#preset').value);
+        $('#modification-fields').hidden = !enabled;
         const note = $('#preset-notice');
-        note.hidden = !blocked;
-        if (!blocked) {
-          updateSequenceMetrics();
-          updateControls();
-          return;
-        }
-        note.dataset.tone = blocked ? 'danger' : 'teal';
+        note.hidden = !enabled;
+        const error = modificationError();
+        note.dataset.tone = error ? 'danger' : 'teal';
         note.replaceChildren();
         const marker = document.createElement('span');
         const text = document.createElement('span');
-        marker.textContent = blocked ? '限制' : '注';
-        text.textContent = blocked ? 'O6‑MeG参数尚未验证，暂不能创建修饰组。不会替换为普通G。' : '标准DNA，5′/3′-OH末端。';
+        marker.textContent = error ? '检查' : '参数库';
+        text.textContent = error || `${entry?.name || $('#preset').value} 使用 RESP + OL21 初版局部参数。已通过拓扑、短EM和OPC兼容性检查，尚未验证长期物理精度；新任务将保存库文件副本。`;
+        $('#modification-help').textContent = entry ? `保留原始 A/C/G/T 序列；所选 ${entry.parent_base} 位点将替换为 ${entry.name}，配对链不自动改变。` : '保留原始 A/C/G/T 序列；通过修饰类型、链和位置替换碱基，配对链不自动改变。';
         note.append(marker, text);
         updateSequenceMetrics();
+        renderJobPath();
         updateControls();
+      }
+
+      function selectedModifications() {
+        return $('#preset').value !== 'normal' ? [{ chain: $('#modification-chain').value, position: Number($('#modification-position').value), base: $('#preset').value }] : [];
+      }
+
+      function renderModificationOptions() {
+        const select = $('#preset');
+        const entries = app.state.modified_bases || [];
+        if ([...select.options].map(option => option.value).join('|') === ['normal', ...entries.map(entry => entry.id)].join('|')) return;
+        const previous = select.value;
+        select.replaceChildren(new Option('不添加修饰', 'normal'), ...entries.map(entry => new Option(`${entry.id} · ${entry.name}`, entry.id)));
+        select.value = entries.some(entry => entry.id === previous) ? previous : 'normal';
+        updatePreset();
+      }
+
+      function modificationError() {
+        const sites = selectedModifications();
+        if (!sites.length) return '';
+        const site = sites[0];
+        const entry = (app.state.modified_bases || []).find(row => row.id === site.base);
+        if (!entry) return '尚未读取到所选修饰的可用拓扑库，请确认服务端已更新。';
+        if (!entry.md_models.includes($('#md-model').value)) return `${site.base} 当前仅支持 AMBER OL21 + OPC，请在计算设置中选择对应力场。`;
+        if ($('input[name="mode"]:checked').value === 'single' && site.chain !== 'A') return '单链任务只能修饰 A 链。';
+        const sequence = $(site.chain === 'A' ? '#sequence-a' : '#sequence-b').value.toUpperCase().replace(/\s/g, '');
+        if (!Number.isInteger(site.position) || site.position < 1 || site.position > sequence.length) return '修饰位置必须是链内从5′端计数的整数，不能超出序列长度。';
+        if (sequence[site.position - 1] !== entry.parent_base) return `${site.chain}${site.position} 不是 ${entry.parent_base}，不能替换为 ${site.base}。`;
+        return '';
       }
 
       function updateSequencePreview() {
@@ -1347,7 +1424,7 @@
         if (validA && mode === 'duplex') length = `${a.length} bp`;
         if (validA && mode === 'partner' && validB) length = a.length === b.length ? `${a.length} bp` : `${a.length}/${b.length} nt`;
         const gc = validA && a.length ? `${(((a.match(/[GC]/g) || []).length / a.length) * 100).toFixed(1)}%` : '—';
-        const modification = $('#preset').value === 'o6meg' ? '未支持' : (markerCount ? `${markerCount} 个` : (valid ? '0 个' : '—'));
+        const modification = selectedModifications().length ? '1 个' : (markerCount ? `${markerCount} 个` : (valid ? '0 个' : '—'));
         $('#metric-length').textContent = length;
         $('#metric-gc').textContent = gc;
         $('#metric-modification').textContent = modification;
@@ -1365,6 +1442,7 @@
         $('#amber-settings').hidden = !amber;
         $('#forcefield').required = !amber;
         renderJobPath();
+        updatePreset();
         // Keep the selected box visible: never silently turn a dodecahedron into an octahedron.
       }
 
@@ -1392,6 +1470,9 @@
           help.textContent = '此值会原样发送给后端；请人工确认方向与配对关系。';
         }
         updateSequencePreview();
+        $('#modification-chain').querySelector('option[value="B"]').disabled = mode === 'single';
+        if (mode === 'single') $('#modification-chain').value = 'A';
+        updatePreset();
       }
 
       async function browse(button) {
@@ -1422,7 +1503,8 @@
 
       async function createJob(event) {
         event.preventDefault();
-        if ($('#preset').value === 'o6meg') { updatePreset(); return; }
+        const error = modificationError();
+        if (error) { toast(error, 'error'); return; }
         const button = $('#create-job');
         const sequence = $('#sequence-a').value.trim();
         const partner = $('#sequence-b').value.trim();
@@ -1437,7 +1519,7 @@
         const mode = $('input[name="mode"]:checked').value;
         if ((mode === 'duplex' || mode === 'partner') && !partner) { toast('双链或配对链模式需要 B 链。', 'error'); return; }
         const payload = {
-          sequence, mode, partner, output,
+          sequence, mode, partner, output, modifications: selectedModifications(),
           forcefield,
           md_model: mdModel, amber_python: $('#amber-python').value.trim(), amber_tleap: $('#amber-tleap').value.trim(), salt_cation: $('#salt-cation').value,
           temperature: numberOrUndefined('temperature'), salt: numberOrUndefined('salt'), nvt_ps: numberOrUndefined('nvt-ps'), npt_ps: numberOrUndefined('npt-ps'), md_ns: numberOrUndefined('md-ns'), xtc_ps: numberOrUndefined('xtc-ps'), padding: numberOrUndefined('padding'), box_type: $('#box-type').value, seed: numberOrUndefined('seed')
@@ -1465,10 +1547,13 @@
           if (!output) throw new Error('后端未返回已有任务目录。');
           const result = await api(API.jobOpen, { method: 'POST', body: JSON.stringify({ path: output }) });
           if (result.job) app.state.job = result.job;
-          if (result.task) app.state.task = result.task;
-          appendLog(`已请求打开任务: ${output}`);
-          toast('已请求服务端打开任务。');
+          app.state.task = result.task || null;
+          $('#dos-engine').value = result.job?.dos_engine || 'gaussian';
+          app.dosJob = null;
+          appendLog(`已打开: ${output}`);
+          toast('已载入任务；已有回传结果将自动核验。');
           renderState();
+          if (button.id === 'dos-load-existing' || /[\\/]results_c(?:64|128)$/.test(output) || /[\\/]dos_v2(?:_orca)?[\\/]/.test(output)) activateTab('results');
           await loadState(true);
         } catch (error) {
           appendLog(`打开任务失败: ${error.message}`);
@@ -1519,16 +1604,20 @@
 
       function bindEvents() {
         bindTabs();
+        $('#quantum-engine').addEventListener('change', updateQuantumEngine);
         $('#trajectory-to-vmd').addEventListener('click', () => activateTab('vmd', true));
         $('#job-form').addEventListener('submit', createJob);
         $('#md-model').addEventListener('change', updateMdModel);
         $('#open-job').addEventListener('click', () => openJob($('#open-job')));
+        $('#dos-load-existing').addEventListener('click', () => openJob($('#dos-load-existing')));
         $('#save-environment').addEventListener('click', () => saveEnvironment($('#save-environment')));
         $('#preset').addEventListener('change', updatePreset);
+        $('#modification-chain').addEventListener('change', updatePreset);
+        $('#modification-position').addEventListener('input', updatePreset);
         $('input[name="mode"]').addEventListener('change', updateMode);
         $$('input[name="mode"]').forEach(input => input.addEventListener('change', updateMode));
         $('#sequence-a').addEventListener('input', updateMode);
-        $('#sequence-b').addEventListener('input', updateSequencePreview);
+        $('#sequence-b').addEventListener('input', () => { updateSequencePreview(); updatePreset(); });
         $('#task-name').addEventListener('input', () => { $('#summary-name').textContent = $('#task-name').value.trim() || '新任务'; });
         $('#copy-vmd-command').addEventListener('click', async () => {
           try {
@@ -1562,6 +1651,7 @@
       }
 
       bindEvents();
+      updateQuantumEngine();
       updatePreset();
       renderState();
       loadState();

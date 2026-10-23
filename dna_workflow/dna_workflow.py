@@ -1,6 +1,6 @@
-"""Sequence -> CHARMM36 job; selected all-atom MD frame -> Gaussian matrix job.
+"""Sequence -> MD job; selected all-atom frame -> Gaussian or ORCA job.
 
-Only canonical DNA, linear strands and 5'-OH/3'-OH termini are supported.
+Linear DNA with canonical or catalogued OL21 modifications and OH termini is supported.
 Open Babel is required only by `build`; other commands use the standard library.
 """
 from __future__ import annotations
@@ -18,10 +18,12 @@ import shutil
 
 HERE = Path(__file__).resolve().parent
 BASES = {"DA", "DC", "DG", "DT"}
+from modified_bases import (RESIDUE_PARENTS, apply_modifications, expected_residues, expected_dna_charge,
+                            library_root, snapshot_library, validate_modifications)
 ENVIRONMENT = {"SOL", "HOH", "WAT", "OPC", "TIP3", "SOD", "CLA", "POT", "NA", "CL", "K", "Na+", "K+", "Cl-"}
 MD_MODELS = ("charmm36_tip3p", "ol21_opc", "ol24_opc")
 AMBER_ENV = "/home/chenz/.local/share/dna-amber/env"
-Z = {"H": 1, "C": 6, "N": 7, "O": 8, "P": 15}
+Z = {"H": 1, "C": 6, "N": 7, "O": 8, "P": 15, "Cl": 17}
 
 
 @dataclass
@@ -64,6 +66,7 @@ def read_pdb(path: Path) -> list[Atom]:
             raise ValueError("Resolve alternate locations/insertion codes before conversion.")
         name = line[12:16].strip()
         element = line[76:78].strip().upper() or name.lstrip("123")[0].upper()
+        element = 'Cl' if element == 'CL' else element
         xyz = tuple(float(line[a:b]) for a, b in [(30, 38), (38, 46), (46, 54)])
         if not all(math.isfinite(x) for x in xyz):
             raise ValueError("Non-finite PDB coordinates.")
@@ -200,13 +203,13 @@ def validate_job_dna(atoms: list[Atom], job: Path, cfg: dict) -> dict:
     fields = ("name", "residue", "chain", "resid", "element")
     if [tuple(getattr(a, k) for k in fields) for a in atoms] != [tuple(a[k] for k in fields) for a in manifest["atoms"]]:
         raise ValueError("DNA atom identity/order differs from Amber topology manifest")
-    expected = [(chr(65+c), i+1, "D"+b) for c,s in enumerate(cfg["strands_5to3"]) for i,b in enumerate(s)]
+    expected = expected_residues(cfg["strands_5to3"], cfg.get("modifications"))
     groups = residues(atoms)
     if [(g[0].chain, g[0].resid, g[0].residue) for g in groups] != expected:
         raise ValueError("Amber residue sequence does not match the input strands")
-    charge = -sum(len(s)-1 for s in cfg["strands_5to3"])
+    charge = expected_dna_charge(cfg["strands_5to3"], cfg.get("modifications"), library_root(job))
     if not math.isclose(manifest["charge"], charge, abs_tol=1e-5):
-        raise ValueError("Amber DNA charge differs from 5OH/3OH canonical DNA")
+        raise ValueError("Amber DNA charge differs from the configured DNA/modifications")
     cross_bonds = []
     for i, j in manifest["bonds"]:
         a, b = atoms[i], atoms[j]
@@ -218,7 +221,7 @@ def validate_job_dna(atoms: list[Atom], job: Path, cfg: dict) -> dict:
             raise ValueError(f"Bad Amber DNA bond {i+1}-{j+1}: {distance:.3f} A; check PBC")
         if a.resid != b.resid:
             cross_bonds.append(distance)
-    if len(cross_bonds) != -charge:
+    if len(cross_bonds) != sum(len(s)-1 for s in cfg["strands_5to3"]):
         raise ValueError("Amber backbone connectivity differs from input strands")
     return {"atom_count": len(atoms), "nucleotides": len(groups), "strands": cfg["strands_5to3"],
             "charge": charge, "cross_residue_bonds": len(cross_bonds),
@@ -291,6 +294,7 @@ def build(args) -> None:
     model = getattr(args, "md_model", MD_MODELS[0])
     if model not in MD_MODELS:
         raise ValueError("Unsupported DNA/water model")
+    modifications = validate_modifications(json.loads(getattr(args, "modifications", "[]")), strands, model)
     amber = model != MD_MODELS[0]
     ff = args.forcefield.resolve() if args.forcefield else None
     if not amber and (ff is None or not ff.name.endswith(".ff")):
@@ -298,7 +302,9 @@ def build(args) -> None:
     if amber and args.box_type == "dodecahedron":
         raise ValueError("AmberTools branch supports cubic/triclinic/octahedron, not dodecahedron. Select the box explicitly.")
     atoms = build_atoms(seq, len(strands) == 2)
-    report = ({"charge": -sum(len(s) - 1 for s in strands), "atom_count": len(atoms),
+    if modifications:
+        atoms = apply_modifications(atoms, strands, modifications)
+    report = ({"charge": expected_dna_charge(strands, modifications), "atom_count": len(atoms),
                "validation": "Ideal heavy-atom seed only; AmberTools topology validation pending"}
               if amber else validate_dna(atoms, strands, ff))
     for value in [args.temperature, args.nvt_ps, args.npt_ps, args.md_ns, args.xtc_ps, args.padding]:
@@ -316,18 +322,21 @@ def build(args) -> None:
            "padding_nm": args.padding, "box_type": args.box_type, "formal_dna_charge": report["charge"],
            "openbabel_wheel_version": version("openbabel-wheel"),
            "topology_reference": "topology.pdb", "model": "Open Babel ideal helical start; not an equilibrated conformation"}
+    if modifications:
+        cfg.update(modifications=modifications, modification_parameters="RESP + initial AMBER/GAFF2 analogy; not long-time validated")
     if amber:
         cfg.update(amber_tleap=args.amber_tleap, amber_python=args.amber_python, salt_cation=args.salt_cation,
                    parameter_validation="pending; topology conversion is not force-field validation")
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
+    snapshot_library(output, modifications)
     (output / "dna_input.pdb").write_text(pdb_text(atoms), encoding="ascii")
     (output / "sequence.fasta").write_text("".join(f">strand_{chr(65+i)} 5to3\n{s}\n" for i,s in enumerate(strands)), encoding="ascii")
     save_json(output / "workflow.json", cfg)
     save_json(output / "structure_check.json", report)
     if not amber:
         shutil.copytree(ff, output / ff.name)
-    for name in ["dna_workflow.py", "md_pipeline.py", "amber_backend.py", "vmd_handoff.tcl"]:
+    for name in ["dna_workflow.py", "md_pipeline.py", "amber_backend.py", "modified_bases.py", "vmd_handoff.tcl"]:
         shutil.copyfile(HERE / name, output / name)
     for stage in ["em", "nvt", "npt", "md"]:
         (output / (stage + ".mdp")).write_text(mdp_text(stage, cfg), encoding="ascii")
@@ -335,10 +344,10 @@ def build(args) -> None:
     print(f"{len(strands)} strand(s); {len(atoms)} heavy atoms; DNA charge {report['charge']}; {report['validation']}")
 
 
-def restore_identity(atoms: list[Atom], strands: list[str]) -> list[Atom]:
+def restore_identity(atoms: list[Atom], strands: list[str], modifications: list[dict] | None = None) -> list[Atom]:
     """pdb2gmx may globally renumber residues; preserve order, restore manifest chain IDs."""
     groups = residues(atoms)
-    expected = [(chr(65+c), i+1, "D"+base) for c,s in enumerate(strands) for i,base in enumerate(s)]
+    expected = expected_residues(strands, modifications)
     if len(groups) != len(expected):
         raise ValueError("Topology residue count differs from input strands.")
     result = []
@@ -351,16 +360,17 @@ def restore_identity(atoms: list[Atom], strands: list[str]) -> list[Atom]:
 
 def select_dna_atoms(raw: list[Atom], reference: list[Atom]) -> list[Atom]:
     """Select canonical DNA from a frame without guessing changed chemistry or atom order."""
-    unknown = {a.residue for a in raw} - BASES - ENVIRONMENT
+    allowed = BASES | {a.residue for a in reference if a.residue in RESIDUE_PARENTS}
+    unknown = {a.residue for a in raw} - allowed - ENVIRONMENT
     if unknown:
         raise ValueError(f"Unsupported residues {unknown}; do not silently discard modified DNA or ligands.")
-    selected = [a for a in raw if a.residue in BASES]
+    selected = [a for a in raw if a.residue in allowed]
     if [(a.name, a.residue) for a in selected] != [(a.name, a.residue) for a in reference]:
         raise ValueError("Frame DNA atom order/completeness differs from topology.pdb. Export all DNA atoms including H in original order.")
     return selected
 
 
-def gaussian(args) -> None:
+def quantum_input(args, engine="gaussian") -> None:
     job = args.job.resolve()
     cfg = json.loads((job / "workflow.json").read_text(encoding="utf-8"))
     is_relaxation = cfg.get("role") == "representative_relaxation"
@@ -378,7 +388,7 @@ def gaussian(args) -> None:
             raise RuntimeError("Missing validated EM-to-PDB export; run verify_relax first.") from exc
         if exported.get("export_files") != current:
             raise RuntimeError("EM results or relaxed PDB changed since export; rerun verify_relax before Gaussian.")
-    reference = restore_identity(read_pdb(job / "topology.pdb"), cfg["strands_5to3"])
+    reference = restore_identity(read_pdb(job / "topology.pdb"), cfg["strands_5to3"], cfg.get("modifications"))
     validate_job_dna(reference, job, cfg)
     raw = read_pdb(args.frame)
     selected = select_dna_atoms(raw, reference)
@@ -395,34 +405,70 @@ def gaussian(args) -> None:
     route = "#P B3LYP/6-31G(d,p) 6D 10F SCRF=(IEFPCM,Solvent=Water) NoSymm Output=Matrix"
     if args.dispersion != "none":
         route += " EmpiricalDispersion=" + args.dispersion
+    if engine == "orca":
+        route = "! SP B3LYP 6-31G(d,p) TightSCF RIJCOSX def2/J"
+        route += {"none": "", "GD3": " D3ZERO", "GD3BJ": " D3BJ"}[args.dispersion]
+        if args.solvent == "cpcm":
+            route += " CPCM(Water)"
+        total_mb = int(re.match(r"\d+", args.memory).group()) * (1024 if args.memory.upper().endswith("GB") else 1)
+        maxcore = int(0.75 * total_mb / args.nproc)
+        if maxcore < 1:
+            raise ValueError("Total memory is too small for the requested ORCA process count.")
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
     (output / "dna_selected.pdb").write_text(pdb_text(cleaned), encoding="ascii")
     coordinates = "\n".join(f"{a.element:<2} {a.xyz[0]:16.8f} {a.xyz[1]:16.8f} {a.xyz[2]:16.8f}" for a in cleaned)
     title = ("EM-relaxed representative structure; unoptimized Gaussian single point; source was a user-selected confirmed PDB"
              if is_relaxation else "Selected raw MD frame; unoptimized Gaussian single point")
-    text = (f"%chk=dna.chk\n%nprocshared={args.nproc}\n%mem={args.memory.upper()}\n{route}\n\n"
-            f"{title}; time_ps={args.time_ps}\n\n{charge} 1\n"
-            f"{coordinates}\n\ndna.mat\n\n")
-    (output / "dna.gjf").write_text(text, encoding="ascii")
+    if engine == "gaussian":
+        text = (f"%chk=dna.chk\n%nprocshared={args.nproc}\n%mem={args.memory.upper()}\n{route}\n\n"
+                f"{title}; time_ps={args.time_ps}\n\n{charge} 1\n"
+                f"{coordinates}\n\ndna.mat\n\n")
+        (output / "dna.gjf").write_text(text, encoding="ascii")
+    else:
+        solvent = '%cpcm\n  smd true\n  SMDsolvent "water"\nend\n' if args.solvent == "smd" else ""
+        text = (f"{route}\n%pal nprocs {args.nproc} end\n%maxcore {maxcore}\n"
+                f"%scf MaxIter 500 end\n%method COSX_IntSymmetry Full end\n{solvent}"
+                f"* xyz {charge} 1\n{coordinates}\n*\n")
+        (output / "dna.inp").write_text(text, encoding="ascii")
+        save_json(output / "orca.json.conf", {"MOCoefficients": True, "Basisset": True,
+                                               "1elIntegrals": ["S"], "JSONFormats": ["json"]})
     with (output / "atom_mapping.csv").open("w", encoding="utf-8", newline="") as stream:
         writer = csv.writer(stream)
-        writer.writerow(["gaussian_atom_1based", "source_pdb_serial", "chain", "nucleotide_1based", "resname", "atom_name", "bp_1based"])
+        writer.writerow([f"{engine}_atom_1based", "source_pdb_serial", "chain", "nucleotide_1based", "resname", "atom_name", "bp_1based"])
         for i,(a,b) in enumerate(zip(cleaned, selected),1):
             bp = a.resid if a.chain == "A" else len(cfg["strands_5to3"][0]) + 1 - a.resid
             writer.writerow([i,b.serial,a.chain,a.resid,a.residue,a.name,bp if len(cfg["strands_5to3"]) == 2 else ""])
-    provenance = ({"route": "raw_frame_to_relax_child_to_verified_em_to_gaussian",
+    provenance = ({"route": f"raw_frame_to_relax_child_to_verified_em_to_{engine}",
                    "source_job": cfg["source_job"], "source_frame": cfg["source_frame"],
                    "relaxed_frame": str(args.frame.resolve()), "em_verified": True}
                   if is_relaxation else {"route": "direct_raw_md_frame", "source_frame": str(args.frame.resolve())})
-    save_json(output / "gaussian_preparation.json", {**report, "source_frame": str(args.frame.resolve()),
+    save_json(output / f"{engine}_preparation.json", {**report, "source_frame": str(args.frame.resolve()),
               "time_ps": args.time_ps, "removed_environment_atoms": len(raw)-len(selected),
               "electron_count": electrons, "multiplicity": 1, "route": route,
               "coordinate_units": "angstrom", "coordinates_changed": False,
               "input_role": "representative_relaxation" if is_relaxation else "raw_md_frame", "provenance": provenance,
-              "ao_mapping": "Not available until Gaussian exports basis metadata; CSV is atom mapping only.",
-              "validation": "Geometry, DNA composition, atom order and charge checked; Gaussian not executed"})
-    print(output / "dna.gjf")
+              "ao_mapping": f"Not available until {'ORCA' if engine == 'orca' else 'Gaussian'} exports basis metadata; CSV is atom mapping only.",
+              "validation": f"Geometry, DNA composition, atom order and charge checked; {'ORCA' if engine == 'orca' else 'Gaussian'} not executed"})
+    if engine == "orca":
+        (output / "README.md").write_text(
+            "# ORCA 6.0.1 DNA 单点\n\n"
+            "运行 `orca dna.inp > dna.out`。正常结束后，在同目录保留 orca.json.conf，运行 "
+            "`orca_2json dna.gbw -json`。\n\n"
+            "回传 dna.json、dna.out，以及本目录原有的 dna.inp、dna_selected.pdb 和 atom_mapping.csv。"
+            "工作台中选择 ORCA 后检查矩阵并生成 GPU 包。\n\n"
+            f"memory={args.memory.upper()} 为总内存预算，%maxcore={maxcore} MB/进程，已预留约25%开销。"
+            "ORCA 默认球谐5D，Gaussian 现有路径为笛卡尔6D；二者态数不必相同。\n",
+            encoding="utf-8")
+    print(output / ("dna.gjf" if engine == "gaussian" else "dna.inp"))
+
+
+def gaussian(args) -> None:
+    quantum_input(args)
+
+
+def orca(args) -> None:
+    quantum_input(args, "orca")
 
 
 def parser():
@@ -436,6 +482,7 @@ def parser():
     mode.add_argument("--partner", help="Second strand written 5' -> 3'; must be reverse complement")
     p.add_argument("--forcefield", type=Path)
     p.add_argument("--md-model", choices=MD_MODELS, default=MD_MODELS[0])
+    p.add_argument("--modifications", default="[]", help="JSON list of chain/position/base modification sites")
     p.add_argument("--amber-tleap", default=AMBER_ENV + "/bin/tleap")
     p.add_argument("--amber-python", default=AMBER_ENV + "/bin/python")
     p.add_argument("--salt-cation", choices=["Na+", "K+"], default="Na+")
@@ -459,6 +506,16 @@ def parser():
     p.add_argument("--memory", default="32GB")
     p.add_argument("--dispersion", choices=["none", "GD3", "GD3BJ"], default="none")
     p.set_defaults(func=gaussian)
+    p = sub.add_parser("orca")
+    p.add_argument("--job", type=Path, required=True)
+    p.add_argument("--frame", type=Path, required=True)
+    p.add_argument("--output", type=Path, required=True)
+    p.add_argument("--time-ps", type=float)
+    p.add_argument("--nproc", type=int, default=16)
+    p.add_argument("--memory", default="32GB", help="total memory budget; maxcore reserves 25%% overhead")
+    p.add_argument("--dispersion", choices=["none", "GD3", "GD3BJ"], default="none")
+    p.add_argument("--solvent", choices=["cpcm", "smd"], default="cpcm")
+    p.set_defaults(func=orca)
     return root
 
 

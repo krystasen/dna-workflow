@@ -1,0 +1,259 @@
+[
+  {
+    "section": "BOND",
+    "target": [
+      "CQ",
+      "N2"
+    ],
+    "source_file": "parm10.dat",
+    "source_types": [
+      "CA",
+      "N2"
+    ],
+    "reason": "purine exocyclic amino bond",
+    "actual_values": [
+      481.0,
+      1.34
+    ],
+    "basis": "force-field analogy"
+  },
+  {
+    "section": "BOND",
+    "target": [
+      "CA",
+      "OS"
+    ],
+    "source_file": "gaff2.dat",
+    "source_types": [
+      "ca",
+      "os"
+    ],
+    "reason": "aromatic ether bond",
+    "actual_values": [
+      343.34,
+      1.3688
+    ],
+    "basis": "force-field analogy"
+  },
+  {
+    "section": "ANGLE",
+    "target": [
+      "N2",
+      "CQ",
+      "NC"
+    ],
+    "source_file": "parm10.dat",
+    "source_types": [
+      "N2",
+      "CA",
+      "NC"
+    ],
+    "reason": "C2 ring amino angle",
+    "actual_values": [
+      70.0,
+      119.3
+    ],
+    "basis": "force-field analogy"
+  },
+  {
+    "section": "ANGLE",
+    "target": [
+      "CQ",
+      "N2",
+      "H"
+    ],
+    "source_file": "parm10.dat",
+    "source_types": [
+      "CA",
+      "N2",
+      "H"
+    ],
+    "reason": "amino H angle",
+    "actual_values": [
+      50.0,
+      120.0
+    ],
+    "basis": "force-field analogy"
+  },
+  {
+    "section": "ANGLE",
+    "target": [
+      "NC",
+      "CA",
+      "OS"
+    ],
+    "source_file": "gaff2.dat",
+    "source_types": [
+      "nb",
+      "ca",
+      "os"
+    ],
+    "reason": "ring N-carbon-ether angle",
+    "actual_values": [
+      85.47,
+      119.76
+    ],
+    "basis": "force-field analogy"
+  },
+  {
+    "section": "ANGLE",
+    "target": [
+      "CA",
+      "OS",
+      "CT"
+    ],
+    "source_file": "gaff2.dat",
+    "source_types": [
+      "ca",
+      "os",
+      "c3"
+    ],
+    "reason": "aryl O-methyl angle",
+    "actual_values": [
+      88.26,
+      118.39
+    ],
+    "basis": "force-field analogy"
+  },
+  {
+    "section": "ANGLE",
+    "target": [
+      "CB",
+      "CA",
+      "OS"
+    ],
+    "source_file": "gaff2.dat",
+    "source_types": [
+      "ca",
+      "ca",
+      "os"
+    ],
+    "reason": "ring carbon-carbon-ether angle",
+    "actual_values": [
+      79.0,
+      119.11
+    ],
+    "basis": "force-field analogy"
+  },
+  {
+    "section": "DIHE",
+    "target": [
+      "NC",
+      "CQ",
+      "N2",
+      "H"
+    ],
+    "source_file": "parm10.dat",
+    "source_types": [
+      "X",
+      "CA",
+      "N2",
+      "X"
+    ],
+    "reason": "amino conjugation",
+    "actual_values": [
+      [
+        2.4,
+        180.0,
+        2
+      ]
+    ],
+    "basis": "force-field analogy"
+  },
+  {
+    "section": "DIHE",
+    "target": [
+      "NC",
+      "CA",
+      "OS",
+      "CT"
+    ],
+    "source_file": "gaff2.dat",
+    "source_types": [
+      "X",
+      "ca",
+      "os",
+      "X"
+    ],
+    "reason": "aryl ether generic N side",
+    "actual_values": [
+      [
+        0.9,
+        180.0,
+        2
+      ]
+    ],
+    "basis": "force-field analogy"
+  },
+  {
+    "section": "DIHE",
+    "target": [
+      "CB",
+      "CA",
+      "OS",
+      "CT"
+    ],
+    "source_file": "gaff2.dat",
+    "source_types": [
+      "ca",
+      "ca",
+      "os",
+      "c3"
+    ],
+    "reason": "aryl ether carbon side",
+    "actual_values": [
+      [
+        1.66,
+        180.0,
+        2
+      ]
+    ],
+    "basis": "force-field analogy"
+  },
+  {
+    "section": "IMPROPER",
+    "target": [
+      "N2",
+      "NC",
+      "CQ",
+      "NC"
+    ],
+    "source_file": "parm10.dat",
+    "source_types": [
+      "N2",
+      "NA",
+      "CA",
+      "NC"
+    ],
+    "reason": "C2 trigonal planarity",
+    "actual_values": [
+      1.1,
+      180.0,
+      2
+    ],
+    "basis": "force-field analogy"
+  },
+  {
+    "section": "IMPROPER",
+    "target": [
+      "CB",
+      "NC",
+      "CA",
+      "OS"
+    ],
+    "source_file": "parm10.dat",
+    "source_types": [
+      "CB",
+      "N2",
+      "CA",
+      "NC"
+    ],
+    "reason": "C6 trigonal planarity",
+    "actual_values": [
+      1.1,
+      180.0,
+      2
+    ],
+    "basis": "force-field analogy"
+  }
+]

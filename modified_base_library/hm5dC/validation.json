@@ -1,0 +1,26 @@
+{
+  "library_load": true,
+  "polymer_connections": true,
+  "finite_EM": true,
+  "gromacs_export": true,
+  "energy_comparison": true,
+  "cross_residue_bonds": 2,
+  "polymer_charge_e": -1.9999999935792956,
+  "initial_AMBER_kcal_mol": -26.213139726311454,
+  "EM_AMBER_kcal_mol": -238.06145290155322,
+  "GROMACS_minus_AMBER_kJ_mol": -0.04588080799499039,
+  "physical_validation": false,
+  "evidence_files": [
+    "polymer/build.log",
+    "polymer/test.prmtop",
+    "polymer/em.out",
+    "polymer/energy.top",
+    "polymer/energy.log",
+    "opc/build.log",
+    "opc/em.tpr",
+    "opc/em.log"
+  ],
+  "opc_compatibility": true,
+  "opc_waters": 664,
+  "opc_EM_potential_kJ_mol": -32943.973
+}

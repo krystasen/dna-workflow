@@ -1,0 +1,83 @@
+[
+  {
+    "section": "BOND",
+    "target": [
+      "C1",
+      "Cl"
+    ],
+    "source_file": "parm10.dat",
+    "source_types": [
+      "CA",
+      "Cl"
+    ],
+    "reason": "aryl C-Cl bond",
+    "actual_values": [
+      193.0,
+      1.727
+    ],
+    "basis": "force-field analogy"
+  },
+  {
+    "section": "ANGLE",
+    "target": [
+      "C1",
+      "C1",
+      "Cl"
+    ],
+    "source_file": "parm10.dat",
+    "source_types": [
+      "CA",
+      "CA",
+      "Cl"
+    ],
+    "reason": "aryl C-C-Cl angle",
+    "actual_values": [
+      70.0,
+      118.8
+    ],
+    "basis": "force-field analogy"
+  },
+  {
+    "section": "ANGLE",
+    "target": [
+      "CA",
+      "C1",
+      "Cl"
+    ],
+    "source_file": "parm10.dat",
+    "source_types": [
+      "CA",
+      "CA",
+      "Cl"
+    ],
+    "reason": "aryl C-C-Cl angle",
+    "actual_values": [
+      70.0,
+      118.8
+    ],
+    "basis": "force-field analogy"
+  },
+  {
+    "section": "IMPROPER",
+    "target": [
+      "CA",
+      "C1",
+      "C1",
+      "Cl"
+    ],
+    "source_file": "ff-nucleic-OL21.frcmod",
+    "source_types": [
+      "C",
+      "C1",
+      "C1",
+      "CT"
+    ],
+    "reason": "C5 sp2 planarity after H5 replacement; use native sp2 force constant, not a new QM fit",
+    "actual_values": [
+      1.1,
+      180.0,
+      2
+    ],
+    "basis": "force-field analogy"
+  }
+]

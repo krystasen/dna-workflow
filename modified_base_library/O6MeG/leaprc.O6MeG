@@ -1,0 +1,7 @@
+# Load leaprc.DNA.OL21 first. Add this directory with teLeap -I/path/to/O6MeG.
+loadoff O6MeG.lib
+loadamberparams O6MeG.frcmod
+addPdbResMap {
+  { 0 "OG6" "OG5" }
+  { 1 "OG6" "OG3" }
+}

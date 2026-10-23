@@ -1,0 +1,26 @@
+{
+  "library": "AMBER OL21 modified DNA topology library",
+  "entries": {
+    "m5dC": {"path":"m5dC/entry.json","MD_topology_ready":true,"parent_force_field":"DNA.OL21","production_MD_approved":false},
+    "hm5dC": {"path":"hm5dC/entry.json","MD_topology_ready":true,"parent_force_field":"DNA.OL21","production_MD_approved":false},
+    "Cl5dC": {"path":"Cl5dC/entry.json","MD_topology_ready":true,"parent_force_field":"DNA.OL21","production_MD_approved":false},
+    "dI": {"path":"dI/entry.json","MD_topology_ready":true,"parent_force_field":"DNA.OL21","production_MD_approved":false},
+    "m6dA": {"path":"m6dA/entry.json","MD_topology_ready":true,"parent_force_field":"DNA.OL21","production_MD_approved":false},
+    "oxo8dG": {"path":"oxo8dG/entry.json","MD_topology_ready":true,"parent_force_field":"DNA.OL21","production_MD_approved":false},
+    "O6CMdG": {"path":"O6CMdG/entry.json","MD_topology_ready":true,"parent_force_field":"DNA.OL21","production_MD_approved":false},
+    "O6MeG": {
+      "path": "O6MeG/entry.json",
+      "status": "MD_topology_complete_initial_analogy",
+      "MD_topology_ready": true,
+      "internal_residue_target_charge_e": -1,
+      "templates": [
+        "OG6",
+        "OG5",
+        "OG3",
+        "OGN"
+      ],
+      "parent_force_field": "DNA.OL21",
+      "production_MD_approved": false
+    }
+  }
+}

@@ -1,0 +1,379 @@
+{
+  "id": "O6MeG",
+  "name": "O6-methylguanine",
+  "parent_base": "G",
+  "status": "MD_topology_complete_initial_analogy",
+  "parent_backbone": "AMBER DNA OL21 internal DG",
+  "MD_topology_ready": true,
+  "scope": "O6MeG internal and OH-terminal templates on AMBER DNA OL21; technically runnable initial analogy parameters",
+  "chemical_identity": {
+    "O6_bond": "C6-O6-CM ether",
+    "N1_has_hydrogen": false,
+    "base_heavy_hydrogen_atom_count": 18,
+    "base_bonds": [
+      {
+        "atoms": [
+          "N9",
+          "C4"
+        ],
+        "order": 1
+      },
+      {
+        "atoms": [
+          "N9",
+          "C8"
+        ],
+        "order": 1
+      },
+      {
+        "atoms": [
+          "C4",
+          "N3"
+        ],
+        "order": 1
+      },
+      {
+        "atoms": [
+          "C4",
+          "C5"
+        ],
+        "order": 2
+      },
+      {
+        "atoms": [
+          "N3",
+          "C2"
+        ],
+        "order": 2
+      },
+      {
+        "atoms": [
+          "C2",
+          "N2"
+        ],
+        "order": 1
+      },
+      {
+        "atoms": [
+          "C2",
+          "N1"
+        ],
+        "order": 1
+      },
+      {
+        "atoms": [
+          "N2",
+          "H21"
+        ],
+        "order": 1
+      },
+      {
+        "atoms": [
+          "N2",
+          "H22"
+        ],
+        "order": 1
+      },
+      {
+        "atoms": [
+          "N1",
+          "C6"
+        ],
+        "order": 2
+      },
+      {
+        "atoms": [
+          "C6",
+          "O6"
+        ],
+        "order": 1
+      },
+      {
+        "atoms": [
+          "C6",
+          "C5"
+        ],
+        "order": 1
+      },
+      {
+        "atoms": [
+          "O6",
+          "CM"
+        ],
+        "order": 1
+      },
+      {
+        "atoms": [
+          "C5",
+          "N7"
+        ],
+        "order": 1
+      },
+      {
+        "atoms": [
+          "N7",
+          "C8"
+        ],
+        "order": 2
+      },
+      {
+        "atoms": [
+          "C8",
+          "H8"
+        ],
+        "order": 1
+      },
+      {
+        "atoms": [
+          "CM",
+          "HM1"
+        ],
+        "order": 1
+      },
+      {
+        "atoms": [
+          "CM",
+          "HM2"
+        ],
+        "order": 1
+      },
+      {
+        "atoms": [
+          "CM",
+          "HM3"
+        ],
+        "order": 1
+      }
+    ],
+    "attachment": [
+      "N9",
+      "C1'"
+    ]
+  },
+  "protocol": {
+    "optimization": "gas-phase B3LYP-D3BJ/6-31G(d,p), 6D/10F",
+    "ESP": "gas-phase HF/6-31G(d), 6D/10F, native Gaussian MK",
+    "conformers": [
+      "O6MeG_A_000",
+      "O6MeG_B_180"
+    ],
+    "native_RESP_weights": [
+      1.0,
+      1.0
+    ],
+    "stage_qwt": [
+      0.0005,
+      0.001
+    ],
+    "fixed_sugar_OH_atoms": 17,
+    "charge_sets": "one shared set; not an average of independent fits"
+  },
+  "charges": {
+    "base_charge_target_e": -0.0888,
+    "base_charge_actual_e": -0.08880099999999985,
+    "internal_residue_target_e": -1,
+    "internal_residue_actual_e": -1.000001,
+    "normalization": "six-decimal RESP charges retained; no single-atom charge adjustment",
+    "base_file": "base_charges.csv",
+    "internal_file": "internal_residue_charges.csv",
+    "full_nucleoside_file": "nucleoside_charges.csv"
+  },
+  "fit_quality": {
+    "per_conformer": [
+      {
+        "model": "O6MeG_A_000",
+        "points": 1411,
+        "RMS_ESP_atomic_units": 0.002904376110517743,
+        "relative_RMS": 0.1462038524886472
+      },
+      {
+        "model": "O6MeG_B_180",
+        "points": 1475,
+        "RMS_ESP_atomic_units": 0.0032059249597402094,
+        "relative_RMS": 0.1749486655031387
+      }
+    ],
+    "pooled_point_count": 2886,
+    "pooled_RMS_ESP_atomic_units": 0.0030622063910582596,
+    "pooled_relative_RMS": 0.16037909714907542
+  },
+  "dG_control_fit_quality": {
+    "per_conformer": [
+      {
+        "model": "dG_reference",
+        "points": 1323,
+        "RMS_ESP_atomic_units": 0.0033183293890151305,
+        "relative_RMS": 0.12333536916036801
+      }
+    ],
+    "pooled_point_count": 1323,
+    "pooled_RMS_ESP_atomic_units": 0.0033183293890151305,
+    "pooled_relative_RMS": 0.12333536916036801
+  },
+  "dG_control_max_base_charge_difference_from_OL21_e": 0.15604800000000002,
+  "source": {
+    "Gaussian_models": "D:\\data\\DNA DoS\\computation\\O6MeG_parameterization_20261004\\gaussian\\models",
+    "joint_RESP": "D:\\data\\DNA DoS\\computation\\O6MeG_parameterization_20261004\\gaussian\\fits\\O6MeG_A_000__O6MeG_B_180",
+    "dG_RESP": "D:\\data\\DNA DoS\\computation\\O6MeG_parameterization_20261004\\gaussian\\fits\\dG_reference"
+  },
+  "not_included": [
+    "new QM-fitted torsions",
+    "long-time or experiment-based physical validation",
+    "OL24 compatibility validation"
+  ],
+  "created": "2026-10-05T21:35:57",
+  "production_MD_approved": false,
+  "templates": [
+    {
+      "name": "OG6",
+      "position": "internal",
+      "atoms": 36,
+      "charge_e": -1.000001
+    },
+    {
+      "name": "OG5",
+      "position": "5prime_OH",
+      "atoms": 34,
+      "charge_e": -0.307901
+    },
+    {
+      "name": "OG3",
+      "position": "3prime_OH",
+      "atoms": 37,
+      "charge_e": -0.692101
+    },
+    {
+      "name": "OGN",
+      "position": "isolated_nucleoside",
+      "atoms": 35,
+      "charge_e": -1e-06
+    }
+  ],
+  "topology_files": {
+    "library": "O6MeG.lib",
+    "parameters": "O6MeG.frcmod",
+    "load_file": "leaprc.O6MeG",
+    "parameter_provenance": "parameter_sources.json"
+  },
+  "validation": {
+    "template_connections": [
+      {
+        "case": "internal",
+        "atoms": 100,
+        "residues": 3,
+        "charge_e": -2.0000009918616186,
+        "phosphodiester_connections": 2,
+        "all_bonded_terms_assigned": true
+      },
+      {
+        "case": "fiveprime",
+        "atoms": 100,
+        "residues": 3,
+        "charge_e": -2.000000993507954,
+        "phosphodiester_connections": 2,
+        "all_bonded_terms_assigned": true
+      },
+      {
+        "case": "threeprime",
+        "atoms": 97,
+        "residues": 3,
+        "charge_e": -2.0000009814348347,
+        "phosphodiester_connections": 2,
+        "all_bonded_terms_assigned": true
+      },
+      {
+        "case": "nucleoside",
+        "atoms": 35,
+        "residues": 1,
+        "charge_e": -9.989957357459112e-07,
+        "phosphodiester_connections": 0,
+        "all_bonded_terms_assigned": true
+      }
+    ],
+    "same_geometry_energy_comparison": [
+      {
+        "case": "internal",
+        "atoms": 100,
+        "initial_AMBER_kcal_mol": -91.84919852760024,
+        "after_300_steps_AMBER_kcal_mol": -255.23693004512214,
+        "minimized_bond_range_A": [
+          0.9635966373429762,
+          1.61544081300426
+        ],
+        "same_geometry_AMBER_kJ_mol": -1067.9113173236708,
+        "GROMACS_kJ_mol": -1067.96,
+        "difference_kJ_mol": -0.04868267632923562,
+        "all_checks_passed": true,
+        "scope": "technical energy/conversion smoke test, not solvent or production MD validation"
+      },
+      {
+        "case": "fiveprime",
+        "atoms": 100,
+        "initial_AMBER_kcal_mol": -151.84614209204327,
+        "after_300_steps_AMBER_kcal_mol": -308.4251000689242,
+        "minimized_bond_range_A": [
+          0.9599591339749937,
+          1.6133335201833456
+        ],
+        "same_geometry_AMBER_kJ_mol": -1290.4506191985079,
+        "GROMACS_kJ_mol": -1290.51,
+        "difference_kJ_mol": -0.0593808014921251,
+        "all_checks_passed": true,
+        "scope": "technical energy/conversion smoke test, not solvent or production MD validation"
+      },
+      {
+        "case": "threeprime",
+        "atoms": 97,
+        "initial_AMBER_kcal_mol": -93.10865047940717,
+        "after_300_steps_AMBER_kcal_mol": -292.21649381394224,
+        "minimized_bond_range_A": [
+          0.9630220703693705,
+          1.6160461803630604
+        ],
+        "same_geometry_AMBER_kJ_mol": -1222.6338044018003,
+        "GROMACS_kJ_mol": -1222.69,
+        "difference_kJ_mol": -0.056195598199792585,
+        "all_checks_passed": true,
+        "scope": "technical energy/conversion smoke test, not solvent or production MD validation"
+      },
+      {
+        "case": "nucleoside",
+        "atoms": 35,
+        "initial_AMBER_kcal_mol": -55.77746453303625,
+        "after_300_steps_AMBER_kcal_mol": -70.91581466536057,
+        "minimized_bond_range_A": [
+          0.9621951387216612,
+          1.5393982301105327
+        ],
+        "same_geometry_AMBER_kJ_mol": -296.71176848579455,
+        "GROMACS_kJ_mol": -296.727,
+        "difference_kJ_mol": -0.0152315142054249,
+        "all_checks_passed": true,
+        "scope": "technical energy/conversion smoke test, not solvent or production MD validation"
+      }
+    ],
+    "system_checks": [
+      {
+        "case": "27bp duplex A14 O6MeG:C",
+        "atoms": 1716,
+        "residues": 54,
+        "modified_sites": 1,
+        "charge_e": -52.000000696069975,
+        "phosphodiester_connections": 52,
+        "all_parameters_assigned": true,
+        "scope": "dry topology, not production trajectory"
+      },
+      {
+        "case": "O6MeG trimer in OPC and neutralizing K+",
+        "atoms": 3070,
+        "OPC_waters": 742,
+        "charge_e": 3.0800721360080274e-06,
+        "GROMACS_tpr_built": true,
+        "GROMACS_25step_EM_completed": true,
+        "EM_final_potential_kJ_mol": -37184.637,
+        "scope": "compatibility smoke test; not 0.15 M equilibration or MD validation"
+      }
+    ],
+    "regression_tests": "test_o6meg_library.py, 3 tests passed"
+  }
+}

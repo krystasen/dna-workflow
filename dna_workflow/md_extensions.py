@@ -18,6 +18,7 @@ from types import SimpleNamespace
 
 import md_pipeline as md
 from dna_workflow import ENVIRONMENT, pdb_text, read_pdb, restore_identity, save_json, select_dna_atoms, validate_dna, validate_job_dna, MD_MODELS
+from modified_bases import snapshot_library, library_root
 
 
 BOX_TYPES = ("cubic", "dodecahedron", "octahedron", "triclinic")
@@ -205,7 +206,7 @@ def prepare_relax(args) -> dict:
     if not math.isfinite(args.salt) or args.salt < 0:
         raise ValueError("salt must be non-negative")
     cfg = json.loads((parent / "workflow.json").read_text(encoding="utf-8"))
-    reference = restore_identity(read_pdb(parent / "topology.pdb"), cfg["strands_5to3"])
+    reference = restore_identity(read_pdb(parent / "topology.pdb"), cfg["strands_5to3"], cfg.get("modifications"))
     validate_job_dna(reference, parent, cfg)
     selected = select_dna_atoms(read_pdb(frame), reference)
     selected = [replace(a, serial=i + 1, xyz=b.xyz) for i, (a, b) in enumerate(zip(reference, selected))]
@@ -259,6 +260,7 @@ def prepare_amber_relax(args, parent, frame, cfg, selected):
     child = _require_new_directory(args.output)
     for name in ("dna.prmtop", "dna_manifest.json"):
         shutil.copy2(parent / name, child / name)
+    snapshot_library(child, cfg.get("modifications", []), library_root(parent))
     shutil.copy2(frame, child / "source_frame.pdb")
     for name in ("topology.pdb", "selected_source_frame.pdb"):
         (child / name).write_text(pdb_text(selected), encoding="ascii")
@@ -336,7 +338,7 @@ def verify_relax(args) -> dict:
         raise ValueError("verify_relax requires a representative_relaxation child job")
     command = _command_for_job(child, args.gmx)
     em = md.verify_return(child, "em", command)
-    reference = restore_identity(read_pdb(child / "topology.pdb"), cfg["strands_5to3"])
+    reference = restore_identity(read_pdb(child / "topology.pdb"), cfg["strands_5to3"], cfg.get("modifications"))
     relaxed = _whole_em_dna(child, reference, len(cfg["strands_5to3"]), command)
     check = validate_job_dna(relaxed, child, cfg)
     (child / "relaxed_dna.pdb").write_text(pdb_text(relaxed), encoding="ascii")

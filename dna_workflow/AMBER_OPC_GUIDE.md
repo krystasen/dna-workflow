@@ -26,7 +26,27 @@ status: validation-in-progress
 5. 轨迹处理、VMD 主导构型选择继续沿用原入口。主导构型再溶剂化继承父任务的 DNA 模型、OPC 和离子模型，再生成独立 EM 子任务。
 6. EM 回传后去水去离子，按 DNA manifest 验证原子身份与顺序，再输出 Gaussian 输入。
 
-支持标准 A/C/G/T 单链或双链。O6MeG、氧化碱基等尚不能直接进入本分支，不能用标准 G 代替修饰后声称完成参数化。
+支持标准 A/C/G/T 单链或双链，以及O6MeG、5-mC、5-hmC、5-ClC、dI、N6-MeA、8-oxoG和O6-CM八种已登记修饰。修饰入口当前仅兼容OL21 + OPC；不得把修饰改名标准碱基绕过拓扑。
+
+## 七种新修饰（2026-10-12）
+
+在“非标准碱基”选择类型、链和5′计数位置；C类修饰必须选C位点，dI/N6-MeA选A位点，8-oxoG/O6-CM选G位点。序列仍输入母体A/C/G/T，配对链不自动改动。具体库及验证边界见[[05 Code/modified_base_library/README|非标准DNA拓扑库]]。
+
+O6-CM按羧酸根核苷−1e处理，DNA内部残基−2e。27bp双链含一个该位点时总电荷为−53而非−52；工作台的中和离子和Gaussian输入自动使用该电荷。5-ClC保留Cl元素。新任务会保存对应参数库副本，不改写已建任务的快照。
+
+新增七种均完成真实RESP、四模板及技术验证；八种共16个单双链API→WSL测试完成建模、拓扑、OPC、EM TPR、Gaussian输入。未运行新的100ns生产MD或Gaussian单点；正常dA的QM/RESP对照按用户决定留待后续，dI/N6-MeA元数据保留该限制。
+
+## O6MeG 修饰入口
+
+1. 在“序列与任务”保留原始A/C/G/T序列，选择“非标准碱基 → O6MeG”。
+2. 指定A/B链和链内从5′端开始计数的位置；该位置必须是G。单链只能选择A链。
+3. 在计算设置中明确选择OL21 + OPC及兼容盒型，创建新任务。CHARMM、OL24、非G位置、越界位置会被拦截。
+4. 构建PDB时插入真实O6MeG化学结构，N1无氢，O6连接甲基；不是把普通G改一个残基名。
+5. 新任务在`workflow.json`保存`modifications`，并复制库文件到任务的`modified_base_library/O6MeG`。拓扑、溶剂化、主导构型再溶剂化、轨迹身份恢复和Gaussian导出均保留修饰。
+
+数据库位于`../modified_base_library`；服务端从`catalog.json`读取可用条目。GUI当前编辑一个修饰位点，后端配置支持不重复的多位点列表。参数为真实RESP电荷＋OL21主干＋AMBER/GAFF2局部类比补参，技术检查通过但未完成长期物理精度验证；界面会显示此边界。
+
+不要在A链输入框直接写`[O6MeG]`标签；请使用显式修饰入口，配对链不会自动突变。位于5′/3′OH端时会使用OG5/OG3，内部位点使用OG6。
 
 ## 科学边界
 
@@ -43,13 +63,24 @@ status: validation-in-progress
 - `md_extensions.py`：主导构型再溶剂化和 EM 子任务。
 - `gui_server.py`、`gui/index.html`：GUI 模型选择及环境检查。
 
+## Gaussian / ORCA 与回传结果
+
+“04 量化计算”可选择 Gaussian 或 ORCA；Gaussian 原输入设置保留，ORCA 输出独立的 `dna.inp`、`orca.json.conf` 和原子映射。ORCA 单点正常结束后，在同目录执行 `orca_2json dna.gbw -json`，导出完整 MO、轨道能量、基组和 S 矩阵。本机检查与打包 ORCA JSON 另需 `ijson`。
+
+“05 DoS 与结果”分别保存 `dos_v2`（Gaussian）和 `dos_v2_orca`（ORCA）的状态。两条路径共用 V2 求解及后处理；ORCA 用完整 MO 重建正交 Hamiltonian，不把 core H-Matrix 当作收敛 Fock。现有 ORCA 路径为球谐5D、B3LYP、CPCM或SMD，Gaussian 路径为6D、Gaussian B3LYP和IEFPCM；同一后处理不意味着两者的电子结构等价。
+
+回传整个 `results_c64` 或 `results_c128` 后，点击“载入已有计算包 / 结果”，选择计算包根目录或结果目录。工作台自动定位所属 DNA 任务、选择量化程序并核验，然后可生成 Figure 3a–d；不要把计算包当作原始矩阵目录重新检查。目录需位于原 DNA 任务下，并保留任务的 `workflow.json`。选择计算包根目录时优先使用其 `results_c64`；查看另一精度时直接选择对应结果目录。
+
+当前 ORCA 6.1.1 的27bp、18682态回传已完成核验和绘图。该记录不代表本机重新运行了完整 DFT 或 CUDA 扫描。
+
 ## 验证记录
 
 - 既有/新分支流程测试通过；另外显式执行 `test_workflow.py`，标准单双链、CHARMM 重原子/末端、PDB 回读和 MDP 单位测试通过；5 项 DoS 回归测试通过。
 - 真实 OL21 6 bp 测例：379 个 DNA 原子，电荷 −10，10 条链内磷酸骨架连接，Gaussian 输入导出通过。
 - GUI 模型切换浏览器检查无 JavaScript 错误。
+- 修饰入口：44项单元/流程测试通过；真实3nt单链及3bp双链均通过O6MeG拓扑、OPC溶剂化和EM TPR编译，未执行mdrun；Gaussian输入导出保留修饰。实际浏览器验证A13非G拦截和A14新任务创建。
 - 真实 OL21、OL24 6 bp 测例均通过 OPC 溶剂化及 EM、带 POSRES 的 NVT TPR 编译；NVT 仅用于编译测试，不作为平衡后的生产输入，没有跳过用户作业的 EM 回传条件。
 - OL24 水盒：5114 个四位点 OPC 水，26 个 Na+、16 个 Cl−，共 20877 位点；10 个 Na+ 用于中和，16 对盐对应盒体积离散化后的目标 0.15 M。
 - OL24 代表构型 EM 子任务已通过再次溶剂化和无位置约束 EM TPR 编译。没有执行生产 MD、Gaussian 或大型 DoS 计算。
 
-原始 CHARMM 基线保留在 Git 标签 `baseline-charmm36-20260922`，开发位于 `feature/amber-ol-opc`，尚不合并主分支。
+原始 CHARMM 基线保留在 Git 标签 `baseline-charmm36-20260922`；后续更新经 `feature/amber-ol-opc` 提交并合入 `main`。

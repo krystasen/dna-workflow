@@ -1,0 +1,65 @@
+[
+  {
+    "section": "ANGLE",
+    "target": [
+      "CA",
+      "C1",
+      "CT"
+    ],
+    "source_file": "parm10.dat",
+    "source_types": [
+      "CM",
+      "CM",
+      "CT"
+    ],
+    "reason": "C5 substituted pyrimidine angle; retain OL21 C1 ring type",
+    "actual_values": [
+      70.0,
+      119.7
+    ],
+    "basis": "force-field analogy"
+  },
+  {
+    "section": "ANGLE",
+    "target": [
+      "C1",
+      "CT",
+      "OH"
+    ],
+    "source_file": "gaff2.dat",
+    "source_types": [
+      "cd",
+      "c3",
+      "oh"
+    ],
+    "reason": "conjugated ring-CH2-OH alcohol geometry",
+    "actual_values": [
+      77.24,
+      111.18
+    ],
+    "basis": "force-field analogy"
+  },
+  {
+    "section": "IMPROPER",
+    "target": [
+      "CA",
+      "C1",
+      "C1",
+      "CT"
+    ],
+    "source_file": "ff-nucleic-OL21.frcmod",
+    "source_types": [
+      "C",
+      "C1",
+      "C1",
+      "CT"
+    ],
+    "reason": "C5 sp2 planarity after H5 replacement; native substituted-pyrimidine analogy",
+    "actual_values": [
+      1.1,
+      180.0,
+      2
+    ],
+    "basis": "force-field analogy"
+  }
+]

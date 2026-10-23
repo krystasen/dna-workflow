@@ -1,0 +1,20 @@
+{
+  "status": "RESP_complete",
+  "group": "modified",
+  "conformers": [
+    "m5dC_seed"
+  ],
+  "atoms_per_conformer": 32,
+  "total_charge_e": 1.9999999997799556e-06,
+  "all_charge_constraints_passed": true,
+  "per_conformer_quality": [
+    {
+      "model": "m5dC_seed",
+      "RMS_atomic_units": 0.0034800662972527415,
+      "relative_RMS": 0.14287016506102376
+    }
+  ],
+  "pooled_relative_RMS": 0.14287016506102376,
+  "pooled_RMS_atomic_units": 0.0034800662972527415,
+  "MD_topology_ready": false
+}

@@ -44,7 +44,7 @@ GATEWAY_CANDIDATES = [
     },
 ]
 BRIDGE_INDICES = np.arange(6, 10)
-VDW_A = {"H": 1.20, "C": 1.70, "N": 1.55, "O": 1.52, "P": 1.80}
+VDW_A = {"H": 1.20, "C": 1.70, "N": 1.55, "O": 1.52, "P": 1.80, "Cl": 1.75}
 COVALENT_A = {"H": 0.31, "C": 0.76, "N": 0.71, "O": 0.66, "P": 1.07}
 
 
@@ -110,7 +110,7 @@ def gaussian_geometry(path: Path) -> tuple[list[str], np.ndarray]:
         fields = line.split()
         if len(fields) < 4:
             break
-        elements.append(fields[0].upper())
+        elements.append(fields[0].title())
         coordinates.append([float(value) for value in fields[1:4]])
     if any(element not in VDW_A for element in elements):
         raise ValueError("Unsupported element in Gaussian geometry.")

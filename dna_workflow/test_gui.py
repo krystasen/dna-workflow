@@ -18,6 +18,131 @@ import md_pipeline as md
 
 
 class GuiApiTest(unittest.TestCase):
+    def test_open_package_or_results_loads_owner_engine_and_verifies(self):
+        for engine in ("gaussian", "orca"):
+            for selected in ("package", "results", "inspect"):
+                with self.subTest(engine=engine, selected=selected), tempfile.TemporaryDirectory() as tmp:
+                    job = Path(tmp)
+                    (job / "workflow.json").write_text(json.dumps({"strands_5to3": ["AC"]}))
+                    folder = job / ("dos_v2_orca" if engine == "orca" else "dos_v2")
+                    package, results = folder / "package", folder / "package/results_c64"
+                    results.mkdir(parents=True)
+                    record = {"protocol": f"dna-{engine}-full-dos-v2", "run_id": "loaded-run",
+                              "state_count": 80, "atom_count": 10, "base_pair_count": 2, "parameters": {}}
+                    (package / "manifest.json").write_text(json.dumps(record | {"phase": "exported"}))
+                    (results / "run_manifest.json").write_text(json.dumps(record))
+                    (folder / "workflow.json").write_text(json.dumps({"package": str(package)}))
+                    self.app.open_job({"path": str(job)})
+                    other = "orca" if engine == "gaussian" else "gaussian"
+                    self.app.save_dos_state({"run_id": "other-run"}, other)
+                    calls = []
+                    def fake_run(task_id, argv, cwd=gui.HERE):
+                        calls.append(argv)
+                        (results / "verification_report.json").write_text(json.dumps({"complete": True, "energy_count": 1201}))
+                    with patch.object(self.app, "_start", side_effect=lambda action, work: work("test")), patch.object(self.app, "_run", side_effect=fake_run):
+                        if selected == "inspect":
+                            status, data = self.request("/api/action", {"action": "dos_inspect", "engine": engine,
+                                                                      "source": str(package), "dos_python": sys.executable})
+                        else:
+                            status, data = self.request("/api/job/open", {"path": str(results if selected == "results" else package)})
+                    self.assertEqual(status, 200)
+                    self.assertEqual(data["job"]["path"], str(job))
+                    self.assertEqual(data["job"]["dos_engine"], engine)
+                    loaded = data["job"]["dos_by_engine"][engine]
+                    self.assertEqual(loaded["package"], str(package))
+                    self.assertEqual(loaded["results"], str(results))
+                    self.assertTrue(loaded["verification"]["complete"])
+                    self.assertEqual(data["job"]["dos_by_engine"][other]["run_id"], "other-run")
+                    self.assertIn("verify", calls[0])
+                    self.assertNotIn("inspect", calls[0])
+                    self.assertNotIn("prepare", calls[0])
+                    self.app.open_job({"path": str(folder)})
+                    self.assertEqual(self.app.job, job)
+                    self.assertEqual(self.app.dos_engine, engine)
+
+    def test_open_result_rejects_wrong_package_before_changing_job(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            job = Path(tmp)
+            (job / "workflow.json").write_text(json.dumps({"strands_5to3": ["AC"]}))
+            results = job / "dos_v2_orca/package/results_c64"
+            results.mkdir(parents=True)
+            (results.parent / "manifest.json").write_text(json.dumps({"protocol": "dna-orca-full-dos-v2", "run_id": "one", "phase": "exported"}))
+            (results / "run_manifest.json").write_text(json.dumps({"protocol": "dna-orca-full-dos-v2", "run_id": "two"}))
+            status, data = self.request("/api/job/open", {"path": str(results)})
+            self.assertEqual(status, 400)
+            self.assertIn("run_id", data["error"])
+            self.assertIsNone(self.app.job)
+            self.assertIsNone(self.app.task)
+
+    def test_orca_input_dispatch_and_independent_dos_states(self):
+        with tempfile.TemporaryDirectory(prefix="dna_orca_api_") as tmp:
+            job = Path(tmp)
+            (job / "workflow.json").write_text('{}')
+            source = job / "orca_input"
+            source.mkdir()
+            self.app.open_job({"path": str(job)})
+            self.app.save_dos_state({"source": "existing Gaussian source", "run_id": "keep-me"})
+            gaussian_state = (job / "dos_v2/workflow.json").read_bytes()
+            calls = []
+            def fake_run(task_id, argv, cwd=gui.HERE):
+                calls.append(argv)
+                if "inspect" in argv:
+                    output = Path(argv[argv.index("--output") + 1])
+                    output.mkdir(parents=True)
+                    (output / "inspection.json").write_text(json.dumps({
+                        "protocol": "dna-orca-full-dos-v2", "source": str(source), "source_files": {}, "state_count": 80}))
+            with patch.object(self.app, "_start", side_effect=lambda action, work: work("test")), patch.object(self.app, "_run", side_effect=fake_run):
+                status, data = self.request("/api/action", {"action": "orca", "frame": str(job / "selected.pdb"),
+                                          "output": str(job / "new_orca"), "solvent": "smd"})
+                self.assertEqual(status, 200)
+                self.assertIn("orca", calls[-1])
+                self.assertEqual(calls[-1][-2:], ["--solvent", "smd"])
+                status, data = self.request("/api/action", {"action": "dos_inspect", "engine": "orca",
+                                                          "source": str(source), "dos_python": sys.executable})
+            self.assertEqual(status, 200)
+            self.assertEqual(calls[-1][-2:], ["--engine", "orca"])
+            self.assertEqual(data["job"]["dos_by_engine"]["orca"]["inspection"]["state_count"], 80)
+            self.assertEqual((job / "dos_v2/workflow.json").read_bytes(), gaussian_state)
+            fresh = gui.App()
+            fresh.open_job({"path": str(job)})
+            self.assertEqual(fresh.dos_state()["run_id"], "keep-me")
+            self.assertEqual(fresh.dos_state("orca")["inspection"]["state_count"], 80)
+            results = job / "returned"
+            results.mkdir()
+            (results / "run_manifest.json").write_text(json.dumps({"protocol": "dna-orca-full-dos-v2"}))
+            status, data = self.request("/api/action", {"action": "dos_verify", "results": str(results),
+                                                       "dos_python": sys.executable})
+            self.assertEqual(status, 400)
+            self.assertIn("另一量化程序", data["error"])
+
+    def test_quantum_input_preserves_gaussian_and_orca_identity(self):
+        with tempfile.TemporaryDirectory(prefix="dna_quantum_input_") as tmp:
+            job = Path(tmp)
+            cfg = {"strands_5to3": ["G"]}
+            (job / "workflow.json").write_text(json.dumps(cfg))
+            atoms = [wf.Atom(1, "O3'", "DG", "A", 1, (1., 2., 3.), "O"),
+                     wf.Atom(2, "C3'", "DG", "A", 1, (2., 2., 3.), "C")]
+            (job / "topology.pdb").write_text(wf.pdb_text(atoms))
+            frame = job / "selected.pdb"
+            frame.write_text(wf.pdb_text(atoms))
+            args = SimpleNamespace(job=job, frame=frame, output=job / "gau", nproc=8, memory="16GB",
+                                   time_ps=None, dispersion="none", solvent="smd")
+            with patch.object(wf, "restore_identity", return_value=atoms), patch.object(wf, "validate_job_dna", return_value={"charge": 0}):
+                wf.gaussian(args)
+                args.output = job / "orca"
+                wf.orca(args)
+            gjf = (job / "gau/dna.gjf").read_text()
+            self.assertIn("#P B3LYP/6-31G(d,p) 6D 10F SCRF=(IEFPCM,Solvent=Water) NoSymm Output=Matrix", gjf)
+            self.assertTrue(gjf.endswith("\ndna.mat\n\n"))
+            self.assertIn("gaussian_atom_1based", (job / "gau/atom_mapping.csv").read_text())
+            inp = (job / "orca/dna.inp").read_text()
+            self.assertIn("%maxcore 1536", inp)
+            self.assertIn('SMDsolvent "water"', inp)
+            self.assertIn("* xyz 0 1", inp)
+            self.assertEqual((job / "gau/dna_selected.pdb").read_bytes(), (job / "orca/dna_selected.pdb").read_bytes())
+            self.assertIn("orca_atom_1based", (job / "orca/atom_mapping.csv").read_text())
+            self.assertEqual(json.loads((job / "orca/orca.json.conf").read_text())["1elIntegrals"], ["S"])
+
     def test_tcl_executor_removed_but_cluster_and_tk_preserved(self):
         html = (gui.GUI / "index.html").read_text(encoding="utf-8")
         self.assertNotIn("vmd-console", html)
@@ -75,7 +200,7 @@ class GuiApiTest(unittest.TestCase):
     def test_o6meg_is_rejected_before_any_build(self):
         status, data = self.request("/api/job/create", {"sequence": "ACO6-MeGTA"})
         self.assertEqual(status, 400)
-        self.assertIn("not supported", data["error"])
+        self.assertIn("修饰入口", data["error"])
         self.assertIsNone(self.app.job)
 
     def test_action_requires_open_job(self):

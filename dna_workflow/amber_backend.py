@@ -16,6 +16,8 @@ import re
 import subprocess
 import sys
 from typing import Any
+from modified_bases import (RESIDUE_PARENTS, expected_residues, load_commands,
+                            normalise_residue, validate_modifications)
 
 
 AMBER_ENV = "/home/chenz/.local/share/dna-amber/env"
@@ -24,7 +26,7 @@ DEFAULT_PYTHON = AMBER_ENV + "/bin/python"
 AMBER_MODELS = {"ol21_opc": "OL21", "ol24_opc": "OL24"}
 DNA_BASES = {"A", "C", "G", "T"}
 ION_NAMES = {"NA", "NA+", "SOD", "K", "K+", "POT", "CL", "CL-", "CLA"}
-ELEMENTS = {0: "", 1: "H", 6: "C", 7: "N", 8: "O", 15: "P"}
+ELEMENTS = {0: "", 1: "H", 6: "C", 7: "N", 8: "O", 15: "P", 17: "Cl"}
 
 
 class AmberBackendError(RuntimeError):
@@ -32,8 +34,7 @@ class AmberBackendError(RuntimeError):
 
 
 def _normalise_residue(name: str) -> str | None:
-    match = re.fullmatch(r"D([ACGT])(?:[35])?", name.strip().upper())
-    return "D" + match.group(1) if match else None
+    return normalise_residue(name)
 
 
 def _normalise_cfg(cfg: dict[str, Any]) -> tuple[str, list[str]]:
@@ -45,6 +46,10 @@ def _normalise_cfg(cfg: dict[str, Any]) -> tuple[str, list[str]]:
     strands = cfg.get("strands_5to3")
     if not isinstance(strands, list) or not strands or any(not isinstance(s, str) or not s or set(s.upper()) - DNA_BASES for s in strands):
         raise AmberBackendError("workflow.json requires canonical non-empty strands_5to3 for Amber DNA topology.")
+    try:
+        validate_modifications(cfg.get("modifications"), strands, model)
+    except ValueError as exc:
+        raise AmberBackendError(str(exc)) from exc
     return model, [s.upper() for s in strands]
 
 
@@ -124,7 +129,7 @@ def _run_tleap(job: Path, tleap: str, label: str, text: str) -> None:
     _run(_tool_argv(executable, args), job, job / "logs" / f"{label}.log", {"AMBERHOME": amberhome})
 
 
-def _prepare_input_pdb(source: Path, destination: Path, strands: list[str]) -> dict[str, Any]:
+def _prepare_input_pdb(source: Path, destination: Path, strands: list[str], modifications: list[dict] | None = None) -> dict[str, Any]:
     """Preserve PDB order, force one TER per declared strand, and map C5M -> C7."""
     raw = source.read_text(encoding="utf-8").splitlines()
     atoms: list[tuple[str, str, int, str]] = []
@@ -174,7 +179,10 @@ def _prepare_input_pdb(source: Path, destination: Path, strands: list[str]) -> d
         for _, residue, resid, _ in segment:
             if not residues or residues[-1] != (residue, resid):
                 residues.append((residue, resid))
-        observed.append("".join(name[1] for name, _ in residues))
+        observed.append("".join(RESIDUE_PARENTS.get(name, name)[1] for name, _ in residues))
+        expected = [row[2] for row in expected_residues(strands, modifications) if row[0] == chr(65+len(observed)-1)]
+        if [name for name, _ in residues] != expected:
+            raise AmberBackendError("PDB chemical identities differ from the configured modification sites.")
     if observed != strands:
         raise AmberBackendError(f"{source.name}: residue sequences {observed} differ from workflow strands_5to3 {strands}.")
     for number, segment in enumerate(segments):
@@ -220,8 +228,9 @@ def prepare_topology(job: Path, cfg: dict[str, Any], tleap: str, python: str) ->
     manifest = job / "dna_manifest.json"
     if manifest.exists():
         raise AmberBackendError("Topology manifest already exists; use a new job rather than overwriting Amber topology.")
-    input_report = _prepare_input_pdb(source, job / "amber_input.pdb", strands)
-    leap = (f"source {_model_source(model)}\nsource leaprc.water.opc\n"
+    modifications = cfg.get("modifications", [])
+    input_report = _prepare_input_pdb(source, job / "amber_input.pdb", strands, modifications)
+    leap = (f"source {_model_source(model)}\n{load_commands(job, modifications)}source leaprc.water.opc\n"
             f"dna = loadPdb {_leap_quote(job / 'amber_input.pdb')}\ncheck dna\n"
             f"saveOff dna {_leap_quote(job / 'dna.off')}\n"
             f"saveAmberParm dna {_leap_quote(job / 'dna.prmtop')} {_leap_quote(job / 'dna.inpcrd')}\nquit\n")
@@ -230,7 +239,8 @@ def prepare_topology(job: Path, cfg: dict[str, Any], tleap: str, python: str) ->
                 "--prmtop", _tool_path(job / "dna.prmtop"), "--inpcrd", _tool_path(job / "dna.inpcrd"),
                 "--topology-pdb", _tool_path(job / "topology.pdb"), "--topol", _tool_path(job / "topol.top"),
                 "--gro", _tool_path(job / "topology.gro"),
-                "--manifest", _tool_path(manifest), "--model", model, "--strands", json.dumps(strands))
+                "--manifest", _tool_path(manifest), "--model", model, "--strands", json.dumps(strands),
+                "--modifications", json.dumps(modifications))
     report = _read_manifest(manifest)
     (job / "topology.complete.json").write_text(json.dumps({
         "stage": "topology", "files": ["dna.off", "dna.prmtop", "dna.inpcrd", "topology.pdb", "topol.top", "topology.gro", "dna_manifest.json"],
@@ -250,7 +260,8 @@ def _solvation_text(job: Path, model: str, box_type: str, padding_nm: float, cat
     if salt_pairs:
         assert cation is not None
         ions += f"addIonsRand dna {cation} {salt_pairs}\naddIonsRand dna Cl- {salt_pairs}\n"
-    return (f"source {_model_source(model)}\nsource leaprc.water.opc\n"
+    cfg = json.loads((job / "workflow.json").read_text(encoding="utf-8")) if (job / "workflow.json").is_file() else {}
+    return (f"source {_model_source(model)}\n{load_commands(job, cfg.get('modifications', []))}source leaprc.water.opc\n"
             f"dna = loadMol2 {_leap_quote(job / 'dna_current.mol2')}\n"
             f"{box}\n{ions}check dna\n"
             f"saveAmberParm dna {_leap_quote(job / (output_prefix + '.prmtop'))} {_leap_quote(job / (output_prefix + '.inpcrd'))}\nquit\n")
@@ -450,9 +461,8 @@ def _bond_pairs(structure: Any) -> set[tuple[int, int]]:
     return {tuple(sorted((bond.atom1.idx + 1, bond.atom2.idx + 1))) for bond in structure.bonds}
 
 
-def _assign_dna_identity(structure: Any, strands: list[str]) -> tuple[list[dict[str, Any]], list[dict[str, Any]], set[tuple[int, int]]]:
-    expected = [(chr(65 + chain_index), residue_index + 1, "D" + base)
-                for chain_index, sequence in enumerate(strands) for residue_index, base in enumerate(sequence)]
+def _assign_dna_identity(structure: Any, strands: list[str], modifications: list[dict] | None = None) -> tuple[list[dict[str, Any]], list[dict[str, Any]], set[tuple[int, int]]]:
+    expected = expected_residues(strands, modifications)
     residues = list(structure.residues)
     if len(residues) != len(expected):
         raise RuntimeError(f"Amber topology has {len(residues)} residues; expected {len(expected)} DNA residues.")
@@ -501,7 +511,8 @@ def _parmed_export_dna(args: argparse.Namespace) -> None:
     pmd, gro_writer, top_writer = _parmed_import()
     structure = pmd.load_file(args.prmtop, args.inpcrd)
     strands = json.loads(args.strands)
-    atoms, strand_rows, bonds = _assign_dna_identity(structure, strands)
+    modifications = json.loads(getattr(args, "modifications", "[]"))
+    atoms, strand_rows, bonds = _assign_dna_identity(structure, strands, modifications)
     _write_pdb(structure, Path(args.topology_pdb))
     top = top_writer.from_structure(structure)
     top.write(args.topol)
@@ -516,7 +527,7 @@ def _parmed_export_dna(args: argparse.Namespace) -> None:
         raise RuntimeError(f"Amber DNA charge {charge:g} is not an integer.")
     manifest = {"atoms": [{key: atom[key] for key in ("name", "residue", "chain", "resid", "element")} for atom in atoms],
                 "bonds": [[left - 1, right - 1] for left, right in sorted(bonds)],
-                "charge": rounded_charge, "md_model": args.model}
+                "charge": rounded_charge, "md_model": args.model, "modifications": modifications}
     Path(args.manifest).write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     _add_dna_posres(Path(args.topol), manifest)
 
@@ -611,6 +622,7 @@ def _worker_main(argv: list[str]) -> int:
     parser.add_argument("--manifest")
     parser.add_argument("--model")
     parser.add_argument("--strands")
+    parser.add_argument("--modifications", default="[]")
     parser.add_argument("--output")
     args = parser.parse_args(argv)
     try:

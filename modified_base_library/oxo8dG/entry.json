@@ -1,0 +1,290 @@
+{
+  "id": "oxo8dG",
+  "status": "MD_topology_ready",
+  "parent_force_field": "DNA.OL21",
+  "parameter_basis": "real shared RESP; inherited OL21 plus published 8OG local terms",
+  "templates": [
+    {
+      "name": "XG6",
+      "parent": "DG",
+      "atoms": 34,
+      "charge_e": -1.0000010000000006,
+      "head": "P",
+      "tail": "O3'"
+    },
+    {
+      "name": "XG5",
+      "parent": "DG5",
+      "atoms": 32,
+      "charge_e": -0.307901,
+      "head": null,
+      "tail": "O3'"
+    },
+    {
+      "name": "XG3",
+      "parent": "DG3",
+      "atoms": 35,
+      "charge_e": -0.6921010000000004,
+      "head": "P",
+      "tail": null
+    },
+    {
+      "name": "XGN",
+      "parent": "DGN",
+      "atoms": 33,
+      "charge_e": -1.0000000003618226e-06,
+      "head": null,
+      "tail": null
+    }
+  ],
+  "MD_topology_ready": true,
+  "physical_validation": "not established by technical smoke tests",
+  "RESP_report": {
+    "status": "RESP_complete",
+    "group": "modified",
+    "conformers": [
+      "oxo8dG_anti",
+      "oxo8dG_syn"
+    ],
+    "atoms_per_conformer": 33,
+    "total_charge_e": -9.999999996401776e-07,
+    "all_charge_constraints_passed": true,
+    "per_conformer_quality": [
+      {
+        "model": "oxo8dG_anti",
+        "RMS_atomic_units": 0.0034374277168042183,
+        "relative_RMS": 0.14376281132161045
+      },
+      {
+        "model": "oxo8dG_syn",
+        "RMS_atomic_units": 0.0029414541653528478,
+        "relative_RMS": 0.10521991669225929
+      }
+    ],
+    "pooled_relative_RMS": 0.12317650857166694,
+    "pooled_RMS_atomic_units": 0.003201535910176742,
+    "MD_topology_ready": false
+  },
+  "pending": "long-time physical validation not established",
+  "name": "8-氧代鸟嘌呤",
+  "parent_base": "G",
+  "chemical_state": {
+    "nucleoside_charge": 0,
+    "multiplicity": 1,
+    "internal_residue_target_charge": -1
+  },
+  "chemical_source": {
+    "ccd": "8OG",
+    "URL": "https://www.rcsb.org/ligand/8OG"
+  },
+  "production_MD_approved": false,
+  "geometry_file": "nucleoside.xyz",
+  "alignment_atoms": [
+    "N9",
+    "C4",
+    "C8"
+  ],
+  "topology_files": {
+    "library": "oxo8dG.lib",
+    "parameters": "oxo8dG.frcmod",
+    "load_file": "leaprc.oxo8dG"
+  },
+  "validation": {
+    "library_load": true,
+    "polymer_connections": true,
+    "finite_EM": true,
+    "gromacs_export": true,
+    "energy_comparison": true,
+    "cross_residue_bonds": 2,
+    "polymer_charge_e": -2.0000009887226087,
+    "initial_AMBER_kcal_mol": -92.70546959878774,
+    "EM_AMBER_kcal_mol": -302.2695505506322,
+    "GROMACS_minus_AMBER_kJ_mol": -0.054202341039626845,
+    "physical_validation": false,
+    "evidence_files": [
+      "polymer/build.log",
+      "polymer/test.prmtop",
+      "polymer/em.out",
+      "polymer/energy.top",
+      "polymer/energy.log",
+      "opc/build.log",
+      "opc/em.tpr",
+      "opc/em.log"
+    ],
+    "opc_compatibility": true,
+    "opc_waters": 704,
+    "opc_EM_potential_kJ_mol": -35631.312
+  },
+  "chemistry_validation": {
+    "id": "oxo8dG",
+    "passed": true,
+    "validation": {
+      "library_load": true,
+      "polymer_connections": true,
+      "finite_EM": true,
+      "gromacs_export": true,
+      "energy_comparison": true,
+      "cross_residue_bonds": 2,
+      "polymer_charge_e": -2.0000009887226087,
+      "initial_AMBER_kcal_mol": -92.70546959878774,
+      "EM_AMBER_kcal_mol": -302.2695505506322,
+      "GROMACS_minus_AMBER_kJ_mol": -0.054202341039626845,
+      "physical_validation": false,
+      "evidence_files": [
+        "polymer/build.log",
+        "polymer/test.prmtop",
+        "polymer/em.out",
+        "polymer/energy.top",
+        "polymer/energy.log",
+        "opc/build.log",
+        "opc/em.tpr",
+        "opc/em.log"
+      ],
+      "opc_compatibility": true,
+      "opc_waters": 704,
+      "opc_EM_potential_kJ_mol": -35631.312
+    },
+    "coordinate_cases": [
+      {
+        "case": "internal",
+        "atoms": 98,
+        "residues": 3,
+        "charge_e": -2.0000009887226087,
+        "cross_bonds": 2,
+        "initial_energy_kcal_mol": -92.70546959878774,
+        "all_bonded_terms_assigned": true
+      },
+      {
+        "case": "fiveprime",
+        "atoms": 98,
+        "residues": 3,
+        "charge_e": -2.0000009903689433,
+        "cross_bonds": 2,
+        "initial_energy_kcal_mol": -182.43486912483826,
+        "all_bonded_terms_assigned": true
+      },
+      {
+        "case": "threeprime",
+        "atoms": 95,
+        "residues": 3,
+        "charge_e": -2.0000009782958235,
+        "cross_bonds": 2,
+        "initial_energy_kcal_mol": -92.48053420282258,
+        "all_bonded_terms_assigned": true
+      },
+      {
+        "case": "nucleoside",
+        "atoms": 33,
+        "residues": 1,
+        "charge_e": -9.958567246393102e-07,
+        "cross_bonds": 0,
+        "initial_energy_kcal_mol": -103.19781814852767,
+        "all_bonded_terms_assigned": true
+      },
+      {
+        "case": "duplex27",
+        "atoms": 1714,
+        "residues": 54,
+        "charge_e": -52.00000069293097,
+        "cross_bonds": 52,
+        "initial_energy_kcal_mol": 14199.90885332158,
+        "all_bonded_terms_assigned": true
+      }
+    ],
+    "sugar_stereochemistry_preserved": true,
+    "modified_impropers": [
+      [
+        "N9",
+        "C5",
+        "C4",
+        "N3"
+      ],
+      [
+        "N2",
+        "N1",
+        "C2",
+        "N3"
+      ],
+      [
+        "C5",
+        "N1",
+        "C6",
+        "O6"
+      ],
+      [
+        "N7",
+        "N9",
+        "C8",
+        "O8"
+      ],
+      [
+        "C4",
+        "C8",
+        "N9",
+        "C1'"
+      ],
+      [
+        "C2",
+        "H21",
+        "N2",
+        "H22"
+      ],
+      [
+        "C6",
+        "C2",
+        "N1",
+        "H1"
+      ],
+      [
+        "C8",
+        "C5",
+        "N7",
+        "H7"
+      ],
+      [
+        "O5'",
+        "H5'",
+        "C5'",
+        "H5''"
+      ],
+      [
+        "O5'",
+        "H5'",
+        "C5'",
+        "C4'"
+      ],
+      [
+        "C4'",
+        "H5''",
+        "C5'",
+        "O5'"
+      ],
+      [
+        "C4'",
+        "H5'",
+        "C5'",
+        "H5''"
+      ]
+    ]
+  },
+  "control_reference_status": "existing dG RESP control reused",
+  "protocol": {
+    "opt": "gas-phase B3LYP-D3BJ/6-31G(d,p), 6D/10F",
+    "ESP": "gas-phase HF/6-31G(d), 6D/10F Gaussian MK",
+    "conformers": [
+      "oxo8dG_anti",
+      "oxo8dG_syn"
+    ],
+    "conformer_weights": [
+      1.0,
+      1.0
+    ],
+    "geometry_model": "oxo8dG_anti",
+    "RESP": "native two-stage, shared charges, fixed parent sugar/OH"
+  },
+  "published_local_parameter_source": {
+    "URL": "https://personalpages.manchester.ac.uk/staff/Richard.Bryce/amber/index.html",
+    "file": "8OG.frcmod",
+    "note": "whitespace normalized for ParmEd; numeric values unchanged; published charges not reused"
+  }
+}

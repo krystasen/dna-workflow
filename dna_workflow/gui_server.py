@@ -12,11 +12,12 @@ from pathlib import Path, PurePosixPath
 import subprocess
 import sys
 import threading
-from urllib.parse import unquote, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 import uuid
 import webbrowser
 from md_pipeline import MD_STAGES, return_files, verified_return
 from dna_workflow import MD_MODELS, AMBER_ENV
+from modified_bases import available_bases, validate_modifications
 
 
 HERE = Path(__file__).resolve().parent
@@ -53,7 +54,7 @@ DEFAULTS = {
 }
 PREPARATION_ACTIONS = {f"prepare_{s}" for s in MD_STAGES}
 VERIFICATION_ACTIONS = {f"verify_{s}" for s in MD_STAGES}
-ALLOWED_ACTIONS = {"topology", "solvate", "handoff", "gaussian", "open_folder", "open_vmd"} | PREPARATION_ACTIONS | VERIFICATION_ACTIONS
+ALLOWED_ACTIONS = {"topology", "solvate", "handoff", "gaussian", "orca", "open_folder", "open_vmd"} | PREPARATION_ACTIONS | VERIFICATION_ACTIONS
 ANALYSIS_ACTIONS = {"cluster", "open_tk", "prepare_relax", "verify_relax"}
 ALLOWED_ACTIONS |= ANALYSIS_ACTIONS
 DOS_ACTIONS = {"dos_inspect", "dos_export", "dos_verify", "dos_plot", "dos_open"}
@@ -88,7 +89,7 @@ def number(data: dict, name: str) -> float:
 def reject_o6meg(value: str, field: str) -> None:
     compact = "".join(value.upper().replace("−", "-").split())
     if "O6MEG" in compact or "O6-MEG" in compact:
-        raise APIError(f"{field}: O6-MeG is not supported by this canonical-DNA workflow; it will not be substituted with G.")
+        raise APIError(f"{field}: 请保留 A/C/G/T 序列，并通过修饰入口指定非标准碱基位点；不要在序列中直接写修饰标签。")
 
 
 def safe_gmx(value: str) -> str:
@@ -120,6 +121,7 @@ class App:
         }
         self.job: Path | None = None
         self.task: dict | None = None
+        self.dos_engine = "gaussian"
 
     def state(self) -> dict:
         with self.lock:
@@ -127,7 +129,8 @@ class App:
             environment = dict(self.environment)
             defaults = dict(self.defaults)
             job = self._job_state()
-        return {"environment": environment, "job": job, "task": task, "defaults": defaults}
+        return {"environment": environment, "job": job, "task": task, "defaults": defaults,
+                "modified_bases": available_bases()}
 
     def _job_state(self) -> dict | None:
         if self.job is None:
@@ -185,21 +188,22 @@ class App:
                       "centered": centered, "complete": centered and all(n in artifacts for n in ("dna.pdb", "dna_whole.xtc", "dna.tpr"))}
         return {"path": str(self.job), "config": config, "stages": stages, "md_stages": md_stages, "artifacts": artifacts, "trajectory": trajectory,
                 "production_md": "verified" if verified_return(self.job, "md") else "生产MD完成情况未验证",
-                "dos": self.dos_state()}
+                "dos": self.dos_state(), "dos_engine": self.dos_engine,
+                "dos_by_engine": {engine: self.dos_state(engine) for engine in ("gaussian", "orca")}}
 
-    def dos_state(self) -> dict:
+    def dos_state(self, engine="gaussian") -> dict:
         if self.job is None:
             return {}
-        path = self.job / "dos_v2" / "workflow.json"
+        path = self.job / ("dos_v2_orca" if engine == "orca" else "dos_v2") / "workflow.json"
         if path.is_file():
             try:
                 return json.loads(path.read_text(encoding="utf-8"))
             except (OSError, ValueError) as exc:
                 return {"error": str(exc)}
-        return {"source": str(self.job / "gaussian_input")}
+        return {"source": str(self.job / f"{engine}_input")}
 
-    def save_dos_state(self, state: dict) -> None:
-        path = self.require_job() / "dos_v2" / "workflow.json"
+    def save_dos_state(self, state: dict, engine="gaussian") -> None:
+        path = self.require_job() / ("dos_v2_orca" if engine == "orca" else "dos_v2") / "workflow.json"
         path.parent.mkdir(parents=True, exist_ok=True)
         temporary = path.with_suffix(".json.tmp")
         temporary.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -210,6 +214,13 @@ class App:
             if self.task and self.task['status'] == 'running' and threading.current_thread().name != 'dna-gui-build':
                 raise APIError('Wait for the running task before switching jobs.', 409)
         path = Path(required(payload, "path")).expanduser().resolve()
+        if (path / "manifest.json").is_file() or (path / "run_manifest.json").is_file():
+            self.open_dos_directory(path)
+            return
+        if path.name in ("dos_v2", "dos_v2_orca") and (path.parent / "workflow.json").is_file():
+            self.open_job({"path": str(path.parent)})
+            self.dos_engine = "orca" if path.name == "dos_v2_orca" else "gaussian"
+            return
         if not (path / "workflow.json").is_file():
             raise APIError("Selected directory does not contain workflow.json.")
         try:
@@ -220,6 +231,54 @@ class App:
             if not self.task or self.task.get("status") != "running":
                 self.task = None
             self.job = path
+            self.dos_engine = "gaussian"
+
+    def open_dos_directory(self, path: Path) -> None:
+        """Open a returned V2 folder without treating it as raw quantum input."""
+        results = path if (path / "run_manifest.json").is_file() else None
+        package = (path.parent if results else path)
+        package = package if (package / "manifest.json").is_file() else None
+        if results is None:
+            results = next((path / name for name in ("results_c64", "results_c128")
+                            if (path / name / "run_manifest.json").is_file()), None)
+        record_path = results / "run_manifest.json" if results else package / "manifest.json"
+        record = json.loads(record_path.read_text(encoding="utf-8"))
+        protocols = {"dna-gaussian-full-dos-v2": "gaussian", "dna-orca-full-dos-v2": "orca"}
+        if record.get("protocol") not in protocols:
+            raise APIError("所选目录不是工作台的 Gaussian/ORCA V2 计算包或回传结果。")
+        engine = protocols[record["protocol"]]
+        if package is not None:
+            manifest = json.loads((package / "manifest.json").read_text(encoding="utf-8"))
+            if manifest.get("protocol") != record["protocol"] or manifest.get("run_id") != record.get("run_id"):
+                raise APIError("回传结果与计算包的程序或 run_id 不一致。")
+            if manifest.get("phase") != "exported":
+                raise APIError("所选计算包尚未完成导出。")
+        owner = None
+        for parent in path.parents:
+            config = parent / "workflow.json"
+            if config.is_file() and json.loads(config.read_text(encoding="utf-8")).get("strands_5to3"):
+                owner = parent
+                break
+        if owner is None:
+            raise APIError("找不到所属 DNA 任务。请将计算包或回传结果放在含 workflow.json 的 DNA 任务目录下。")
+        self.open_job({"path": str(owner)})
+        self.dos_engine = engine
+        current = self.dos_state(engine)
+        if current.get("run_id") != record["run_id"]:
+            current = {}
+        current.update(parameters=record["parameters"], run_id=record["run_id"],
+                       imported={key: record[key] for key in ("state_count", "atom_count", "base_pair_count")},
+                       results=str(results) if results else "", verification=None, figure=None)
+        if record.get("source", {}).get("source"):
+            current["source"] = record["source"]["source"]
+        if package is not None:
+            current.update(package=str(package), package_phase="exported")
+        else:
+            current.pop("package", None)
+        self.save_dos_state(current, engine)
+        if results is not None:
+            self.dos_action("dos_verify", owner, {"engine": engine, "results": str(results),
+                                                 "package": str(package) if package else ""})
 
     def environment_check(self, payload: dict) -> None:
         distribution = payload.get("distribution", self.environment["distribution"])
@@ -353,6 +412,13 @@ class App:
         model = payload.get("md_model", MD_MODELS[0])
         if model not in MD_MODELS:
             raise APIError("Unsupported DNA/water model.")
+        from dna_workflow import sequence as clean_sequence, complement
+        try:
+            canonical = clean_sequence(sequence)
+            strands = [canonical] if mode == "single" else [canonical, clean_sequence(partner) if mode == "partner" else complement(canonical)]
+            modifications = validate_modifications(payload.get("modifications"), strands, model)
+        except ValueError as exc:
+            raise APIError(str(exc)) from exc
         amber = model != MD_MODELS[0]
         forcefield = None if amber else Path(required(payload, "forcefield")).expanduser().resolve()
         if not amber:
@@ -386,6 +452,8 @@ class App:
                 argv += ["--amber-python", payload.get("amber_python", self.defaults["amber_python"]),
                          "--amber-tleap", payload.get("amber_tleap", self.defaults["amber_tleap"]),
                          "--salt-cation", payload.get("salt_cation", "Na+")]
+                if modifications:
+                    argv += ["--modifications", json.dumps(modifications)]
             else:
                 argv += ["--forcefield", str(forcefield)]
             argv += ["--single"] if mode == "single" else (["--duplex"] if mode == "duplex" else ["--partner", partner])
@@ -405,15 +473,15 @@ class App:
         if action in ANALYSIS_ACTIONS:
             self.analysis_action(action, job, payload)
             return
-        if action == "gaussian":
+        if action in {"gaussian", "orca"}:
             if payload.get("gaussian_job"):
                 job = Path(required(payload, "gaussian_job")).resolve()
                 if not (job / "workflow.json").is_file():
-                    raise APIError("Gaussian source job must contain workflow.json.")
+                    raise APIError("Quantum source job must contain workflow.json.")
             frame = Path(required(payload, "frame")).expanduser().resolve()
             output = Path(required(payload, "output")).expanduser().resolve()
             if output.exists():
-                raise APIError("Gaussian output already exists; choose a new output directory.")
+                raise APIError("Quantum output already exists; choose a new output directory.")
             if not RUNTIME.is_file():
                 raise APIError(f"Workflow runtime was not found: {RUNTIME}")
         if action == "handoff":
@@ -435,15 +503,20 @@ class App:
                     self._append(task_id, "Handoff command: " + subprocess.list2cmdline(argv) + "\n")
                     self._append(task_id, "This post-processing action does not verify that production MD reached 100 ns.\n")
                 self._run(task_id, argv, job)
-            elif action == "gaussian":
-                argv = [str(RUNTIME), "-u", str(HERE / "dna_workflow.py"), "gaussian", "--job", str(job), "--frame", str(frame),
+            elif action in {"gaussian", "orca"}:
+                argv = [str(RUNTIME), "-u", str(HERE / "dna_workflow.py"), action, "--job", str(job), "--frame", str(frame),
                         "--output", str(output), "--time-ps", str(payload.get("time_ps", "")),
                         "--nproc", str(int(payload.get("nproc", 16))), "--memory", str(payload.get("memory", "32GB")),
                         "--dispersion", str(payload.get("dispersion", "none"))]
                 if payload.get("time_ps") in (None, ""):
                     argv.remove("--time-ps")
                     argv.remove("")
+                if action == "orca":
+                    argv += ["--solvent", str(payload.get("solvent", "cpcm"))]
                 self._run(task_id, argv)
+                with self.lock:
+                    if self.task and self.task["id"] == task_id:
+                        self.task["result"] = {"kind": action, "output": str(output), "engine": action}
             elif action == "open_folder":
                 os.startfile(str(job))
                 self._append(task_id, f"Opened {job}\n")
@@ -457,7 +530,11 @@ class App:
 
     def dos_action(self, action: str, job: Path, payload: dict) -> None:
         """Use the scientific CLI; MD/VMD status and local CUDA are not prerequisites."""
-        state = self.dos_state()
+        engine = payload.get("engine", "gaussian")
+        if engine not in ("gaussian", "orca"):
+            raise APIError("请选择 Gaussian 或 ORCA。")
+        protocol = "dna-orca-full-dos-v2" if engine == "orca" else "dna-gaussian-full-dos-v2"
+        state = self.dos_state(engine)
         if action == "dos_open":
             folder = Path(required(payload, "path")).resolve()
             if not folder.is_dir():
@@ -468,16 +545,23 @@ class App:
         if not python.is_file():
             raise APIError(f"DoS Python 不存在：{python}。请选择安装 NumPy/SciPy/Matplotlib 的 Python。")
         base = [str(python), "-X", "utf8", "-B", "-u", str(DOS_SCRIPT)]
-        inspection = job / "dos_v2" / "inspection"
+        inspection = job / ("dos_v2_orca" if engine == "orca" else "dos_v2") / "inspection"
         if action == "dos_inspect":
             source = Path(required(payload, "source")).resolve()
             if not source.is_dir():
-                raise APIError("请选择 Gaussian 矩阵目录。")
+                raise APIError(f"请选择 {engine.upper()} 数据目录。")
+            if (source / "manifest.json").is_file() or (source / "run_manifest.json").is_file():
+                self.open_dos_directory(source)
+                return
             argv = [*base, "inspect", "--source", str(source), "--output", str(inspection)]
+            if engine == "orca":
+                argv += ["--engine", "orca"]
         elif action == "dos_export":
             if not (inspection / "inspection.json").is_file():
-                raise APIError("请先检查 Gaussian 矩阵和原子映射。")
+                raise APIError(f"请先检查 {engine.upper()} 数据和原子映射。")
             inspected = json.loads((inspection / "inspection.json").read_text(encoding="utf-8"))
+            if inspected.get("protocol", protocol) != protocol:
+                raise APIError("检查记录的数据来源不同，请重新检查。")
             if Path(required(payload, "source")).resolve() != Path(inspected["source"]):
                 raise APIError("输入目录已改变，请重新检查矩阵。")
             output = Path(required(payload, "output")).resolve()
@@ -494,6 +578,9 @@ class App:
             results = Path(required(payload, "results")).resolve()
             if not (results / "run_manifest.json").is_file():
                 raise APIError("回传目录缺少 run_manifest.json。请复制完整的 results_c64 目录。")
+            returned = json.loads((results / "run_manifest.json").read_text(encoding="utf-8"))
+            if returned.get("protocol") != protocol:
+                raise APIError("回传结果属于另一量化程序；请切换 Gaussian/ORCA 数据来源。")
             package_value = payload.get("package") or state.get("package")
             package = Path(package_value).resolve() if package_value else None
             if package is not None and not (package / "manifest.json").is_file():
@@ -516,7 +603,7 @@ class App:
             if action == "dos_plot":
                 self._run(task_id, verify, job)
             self._run(task_id, argv, job)
-            current = self.dos_state()
+            current = self.dos_state(engine)
             current["dos_python"] = str(python)
             if action == "dos_inspect":
                 report = json.loads((inspection / "inspection.json").read_text(encoding="utf-8"))
@@ -538,10 +625,10 @@ class App:
                 report = json.loads((output / "figure_metadata.json").read_text(encoding="utf-8"))
                 current.update(results=str(results), figure=report | {"output": str(output)},
                                verification=json.loads((results / "verification_report.json").read_text(encoding="utf-8")))
-            self.save_dos_state(current)
+            self.save_dos_state(current, engine)
             with self.lock:
                 if self.task and self.task["id"] == task_id:
-                    self.task["result"] = {"kind": action, "dos": current}
+                    self.task["result"] = {"kind": action, "dos": current, "engine": engine}
             if action == "dos_export":
                 self._append(task_id, "计算包已生成。将整个目录复制到超算；本机进入等待回传状态。\n")
 
@@ -654,7 +741,11 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json(self.app.state())
             return
         if path == "/api/dos/preview":
-            figure = self.app.dos_state().get("figure") or {}
+            engine = parse_qs(urlparse(self.path).query).get("engine", ["gaussian"])[0]
+            if engine not in ("gaussian", "orca"):
+                self.send_json({"error": "Unknown quantum engine."}, 400)
+                return
+            figure = self.app.dos_state(engine).get("figure") or {}
             preview = Path(figure.get("preview", ""))
             if not preview.is_file() or preview.suffix.lower() != ".png":
                 self.send_json({"error": "尚无图件预览。"}, 404)

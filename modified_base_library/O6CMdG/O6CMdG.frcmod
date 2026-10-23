@@ -1,0 +1,25 @@
+Modified DNA local source-traceable parameter patch
+MASS
+
+
+BOND
+CQ-N2              481.000000 1.340000  parm10.dat:purine exocyclic amino bond
+CA-OS              343.340000 1.368800  gaff2.dat:aromatic ether bond
+
+ANGLE
+N2-CQ-NC           70.000000 119.300000  parm10.dat:C2 ring amino angle
+CQ-N2-H            50.000000 120.000000  parm10.dat:amino H angle
+NC-CA-OS           85.470000 119.760000  gaff2.dat:ring N-carbon-ether angle
+CA-OS-CT           88.260000 118.390000  gaff2.dat:aryl O-methyl angle
+CB-CA-OS           79.000000 119.110000  gaff2.dat:ring carbon-carbon-ether angle
+
+DIHE
+NC-CQ-N2-H         1 2.400000 180.000000 2.000000  parm10.dat:amino conjugation
+NC-CA-OS-CT        1 0.900000 180.000000 2.000000  gaff2.dat:aryl ether generic N side
+CB-CA-OS-CT        1 1.660000 180.000000 2.000000  gaff2.dat:aryl ether carbon side
+
+IMPROPER
+N2-NC-CQ-NC        1.100000 180.000000 2.000000  parm10.dat:C2 trigonal planarity
+CB-NC-CA-OS        1.100000 180.000000 2.000000  parm10.dat:C6 trigonal planarity
+
+NONBON

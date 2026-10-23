@@ -1,0 +1,192 @@
+{
+  "id": "m5dC",
+  "status": "MD_topology_ready",
+  "parent_force_field": "DNA.OL21",
+  "parameter_basis": "real constrained RESP; inherited OL21 plus source-traceable local AMBER/GAFF2 analogy",
+  "templates": [
+    {
+      "name": "MC6",
+      "parent": "DC",
+      "atoms": 33,
+      "charge_e": -0.9999979999999998,
+      "head": "P",
+      "tail": "O3'"
+    },
+    {
+      "name": "MC5",
+      "parent": "DC5",
+      "atoms": 31,
+      "charge_e": -0.3078979999999997,
+      "head": null,
+      "tail": "O3'"
+    },
+    {
+      "name": "MC3",
+      "parent": "DC3",
+      "atoms": 34,
+      "charge_e": -0.692098,
+      "head": "P",
+      "tail": null
+    },
+    {
+      "name": "MCN",
+      "parent": "DCN",
+      "atoms": 32,
+      "charge_e": 2.0000000001130225e-06,
+      "head": null,
+      "tail": null
+    }
+  ],
+  "MD_topology_ready": true,
+  "physical_validation": "not established by technical smoke tests",
+  "RESP_report": {
+    "status": "RESP_complete",
+    "group": "modified",
+    "conformers": [
+      "m5dC_seed"
+    ],
+    "atoms_per_conformer": 32,
+    "total_charge_e": 1.9999999997799556e-06,
+    "all_charge_constraints_passed": true,
+    "per_conformer_quality": [
+      {
+        "model": "m5dC_seed",
+        "RMS_atomic_units": 0.0034800662972527415,
+        "relative_RMS": 0.14287016506102376
+      }
+    ],
+    "pooled_relative_RMS": 0.14287016506102376,
+    "pooled_RMS_atomic_units": 0.0034800662972527415,
+    "MD_topology_ready": false
+  },
+  "pending": "long-time physical validation; GUI integration not performed",
+  "name": "5-甲基胞嘧啶",
+  "parent_base": "C",
+  "production_MD_approved": false,
+  "chemical_state": {
+    "nucleoside_charge": 0,
+    "multiplicity": 1,
+    "internal_residue_target_charge": -1
+  },
+  "chemical_source": {
+    "ccd": "MCY",
+    "URL": "https://www.rcsb.org/ligand/MCY"
+  },
+  "control_reference_status": "dC RESP checked",
+  "protocol": {
+    "opt": "gas-phase B3LYP-D3BJ/6-31G(d,p), 6D/10F",
+    "ESP": "gas-phase HF/6-31G(d), 6D/10F Gaussian MK",
+    "RESP": "native AmberTools two-stage RESP; fixed parent sugar/OH; one shared charge set",
+    "conformer_weights": [
+      1.0
+    ],
+    "geometry_model": "m5dC_seed",
+    "geometry_choice": "first validated model provides library coordinates; all listed models contribute ESP"
+  },
+  "validation": {
+    "library_load": true,
+    "polymer_connections": true,
+    "finite_EM": true,
+    "gromacs_export": true,
+    "energy_comparison": true,
+    "cross_residue_bonds": 2,
+    "polymer_charge_e": -1.9999979975085473,
+    "initial_AMBER_kcal_mol": -57.35882068429521,
+    "EM_AMBER_kcal_mol": -226.187396080725,
+    "GROMACS_minus_AMBER_kJ_mol": -0.04493114917704588,
+    "physical_validation": false,
+    "evidence_files": [
+      "polymer/build.log",
+      "polymer/test.prmtop",
+      "polymer/em.out",
+      "polymer/energy.top",
+      "polymer/energy.log",
+      "opc/build.log",
+      "opc/em.tpr",
+      "opc/em.log"
+    ],
+    "opc_compatibility": true,
+    "opc_waters": 652,
+    "opc_EM_potential_kJ_mol": -32219.738
+  },
+  "chemistry_validation": {
+    "id": "m5dC",
+    "sugar_stereochemistry_preserved": true,
+    "modified_sp2_planarity_improper_assigned": true,
+    "minimum_absolute_signed_volume_A3": 2.259908402704191,
+    "modified_residue_impropers": [
+      [
+        "C4",
+        "C6",
+        "C5",
+        "CM"
+      ],
+      [
+        "C5",
+        "N4",
+        "C4",
+        "N3"
+      ],
+      [
+        "N1",
+        "N3",
+        "C2",
+        "O2"
+      ],
+      [
+        "C2",
+        "C6",
+        "N1",
+        "C1'"
+      ],
+      [
+        "C4",
+        "H41",
+        "N4",
+        "H42"
+      ],
+      [
+        "N1",
+        "C5",
+        "C6",
+        "H6"
+      ],
+      [
+        "O5'",
+        "H5'",
+        "C5'",
+        "H5''"
+      ],
+      [
+        "O5'",
+        "H5'",
+        "C5'",
+        "C4'"
+      ],
+      [
+        "C4'",
+        "H5''",
+        "C5'",
+        "O5'"
+      ],
+      [
+        "C4'",
+        "H5'",
+        "C5'",
+        "H5''"
+      ]
+    ]
+  },
+  "geometry_source": "/mnt/d/data/DNA DoS/computation/DNA_adducts_OL21_20261008/build_20261012/projects/m5dC/models/m5dC_seed",
+  "geometry_file": "nucleoside.xyz",
+  "alignment_atoms": [
+    "N1",
+    "C2",
+    "C6"
+  ],
+  "topology_files": {
+    "library": "m5dC.lib",
+    "parameters": "m5dC.frcmod",
+    "load_file": "leaprc.m5dC"
+  }
+}
